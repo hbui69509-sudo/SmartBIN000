@@ -31,4 +31,4 @@ Hệ thống được thiết kế theo mô hình Edge Computing (xử lý tại
 ## 🚀 5. Hướng dẫn cài đặt & Chạy thử nghiệm (Usage)
 1. Clone repository này về máy tính:
 ```bash
-   git clone [https://github.com/TÊN_GITHUB_CỦA_BẠN/SmartBIN000.git](https://github.com/TÊN_GITHUB_CỦA_BẠN/SmartBIN000.git)
+git clone [https://github.com/hbui69509-sudo/SmartBIN000.git](https://github.com/hbui69509-sudo/SmartBIN000.git)
