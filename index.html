@@ -3,121 +3,257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartBin AIoT - PTIT</title>
+    <title>SmartBin Pro - AIoT PTIT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --primary: #10b981;
+            --secondary: #3b82f6;
+            --danger: #ef4444;
+            --bg: #0f172a;
+            --glass: rgba(255, 255, 255, 0.1);
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0fdf4;
-            color: #1e293b;
-            text-align: center;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
             margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            color: #166534;
-        }
-        #container {
             display: flex;
             flex-direction: column;
             align-items: center;
+            min-height: 100vh;
+        }
+
+        .header {
+            padding: 30px 0;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            background: linear-gradient(to right, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        .main-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            padding: 20px;
+            max-width: 1200px;
+        }
+
+        /* Khung Camera Pro */
+        .camera-section {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            border: 2px solid var(--glass);
+        }
+
+        #webcam-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Khung quét ghim vào rác */
+        .scan-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 280px;
+            border: 2px dashed rgba(255,255,255,0.5);
+            border-radius: 20px;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 20px;
+        }
+
+        .scan-overlay.active {
+            border: 4px solid var(--primary);
+            box-shadow: 0 0 20px var(--primary);
+            width: 300px;
+            height: 300px;
+        }
+
+        .label-tag {
+            background: var(--primary);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            transform: translateY(40px);
+            opacity: 0;
+            transition: 0.3s;
+            white-space: nowrap;
+        }
+
+        .active .label-tag {
+            opacity: 1;
+            transform: translateY(10px);
+        }
+
+        /* Panel thông tin */
+        .info-panel {
+            width: 400px;
+            display: flex;
+            flex-direction: column;
             gap: 20px;
         }
-        #webcam-container {
-            border: 5px solid #22c55e;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
-        }
-        #result-card {
-            background: white;
-            padding: 20px 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            font-size: 24px;
-            font-weight: bold;
-            min-width: 300px;
-        }
-        .confidence {
-            font-size: 18px;
-            color: #64748b;
-            font-weight: normal;
-            margin-top: 10px;
-        }
-        #stats-board {
-            background: #ffffff;
-            border-radius: 10px;
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
             padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            min-width: 300px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        button {
-            background-color: #16a34a;
+
+        .instruction-box {
+            border-left: 4px solid var(--secondary);
+            padding-left: 15px;
+        }
+
+        .instruction-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #cbd5e1;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-item span {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .btn-start {
+            background: linear-gradient(to right, #10b981, #059669);
             color: white;
             border: none;
-            padding: 12px 24px;
-            font-size: 18px;
-            border-radius: 8px;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
             cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
             transition: 0.3s;
         }
-        button:hover {
-            background-color: #15803d;
+
+        .btn-start:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        /* Hiệu ứng quét line */
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: var(--primary);
+            box-shadow: 0 0 15px var(--primary);
+            top: 0;
+            animation: scan 2s infinite linear;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
         }
     </style>
 </head>
 <body>
 
-    <h1>🗑️ SmartBin AIoT</h1>
-    <p>Hệ thống nhận diện & hướng dẫn phân loại rác thông minh</p>
-    
-    <button type="button" onclick="init()">Bật Camera & Bắt đầu Quét</button>
-    
-    <div id="container" style="margin-top: 20px;">
-        <div id="webcam-container"></div>
-        
-        <div id="result-card">
-            <div id="class-name">Đang chờ quét...</div>
-            <div id="confidence-score" class="confidence">Confidence: 0%</div>
+    <div class="header">
+        <h1><i class="fas fa-robot"></i> SMART BIN AIoT</h1>
+        <p style="color: #94a3b8">Hệ thống phân loại rác thải bằng Trí tuệ nhân tạo</p>
+    </div>
+
+    <button class="btn-start" onclick="init()">KÍCH HOẠT HỆ THỐNG</button>
+
+    <div class="main-container">
+        <div class="camera-section">
+            <div id="webcam-container"></div>
+            <div class="scan-overlay" id="overlay">
+                <div class="scan-line"></div>
+                <div class="label-tag" id="floating-label">Đang phân tích...</div>
+            </div>
         </div>
 
-        <div id="stats-board">
-            <h3>📊 Thống kê phiên phân loại</h3>
-            <p>Nhựa: <span id="stat-nhua">0</span></p>
-            <p>Giấy: <span id="stat-giay">0</span></p>
-            <p>Kim loại: <span id="stat-kimloai">0</span></p>
-            <p>Nguy hại / Điện tử: <span id="stat-nguyhai">0</span></p>
+        <div class="info-panel">
+            <div class="card instruction-box">
+                <h3 style="margin-top:0"><i class="fas fa-info-circle"></i> HƯỚNG DẪN XỬ LÝ</h3>
+                <div id="handling-desc" class="instruction-text">
+                    Vui lòng đưa rác vào khung quét để hệ thống nhận diện...
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-top:0"><i class="fas fa-chart-bar"></i> THỐNG KÊ RÁC</h3>
+                <div class="stat-grid">
+                    <div class="stat-item">Nhựa <span id="stat-nhua">0</span></div>
+                    <div class="stat-item">Giấy <span id="stat-giay">0</span></div>
+                    <div class="stat-item">Kim loại <span id="stat-kimloai">0</span></div>
+                    <div class="stat-item">Nguy hại <span id="stat-nguyhai">0</span></div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    
+
     <script>
-        // 
-     const URL = "https://teachablemachine.withgoogle.com/models/eUC93yBYY/";
-        let model, webcam, labelContainer, maxPredictions;
-        let lastSpokenClass = ""; // Biến chống nói nhảm liên tục
-        
-        // Biến lưu trữ thống kê
-        let stats = {
-            "Nhựa": 0,
-            "Giấy": 0,
-            "Kim loại": 0,
-            "Rác nguy hại": 0
+        // THAY LINK MODEL CỦA BẠN VÀO ĐÂY
+        const URL = "https://teachablemachine.withgoogle.com/models/LINK_CUA_BAN_O_DAY/";
+
+        let model, webcam, maxPredictions;
+        let lastSpokenClass = "";
+        let stats = { "Nhựa": 0, "Giấy": 0, "Kim loại": 0, "Nguy hại": 0 };
+
+        const handlingInstructions = {
+            "nhựa": "Đây là rác NHỰA. Cách xử lý: Súc sạch bằng nước, ép bẹp để tiết kiệm diện tích và bỏ vào thùng VÀNG.",
+            "giấy": "Đây là GIẤY/CARTON. Cách xử lý: Giữ khô ráo, tháo bỏ băng dính bám trên bề mặt và bỏ vào thùng XANH DƯƠNG.",
+            "kim loại": "Đây là KIM LOẠI. Cách xử lý: Làm sạch thức ăn thừa bên trong, không để đọng nước và bỏ vào thùng VÀNG.",
+            "nguy hại": "CẢNH BÁO RÁC NGUY HẠI! Cách xử lý: Không vứt chung với rác thường, hãy gói kỹ và đưa đến điểm thu gom pin/điện tử tập trung.",
+            "background": "Vui lòng đưa rác vào khung quét để hệ thống nhận diện..."
         };
 
         async function init() {
-            const modelURL = URL + "model.json";
-            const metadataURL = URL + "metadata.json";
-
-            // Load model
-            model = await tmImage.load(modelURL, metadataURL);
+            document.querySelector('.btn-start').style.display = 'none';
+            model = await tmImage.load(URL + "model.json", URL + "metadata.json");
             maxPredictions = model.getTotalClasses();
 
-            // Setup Webcam
-            const flip = true; 
-            webcam = new tmImage.Webcam(400, 400, flip); 
-            await webcam.setup(); 
+            webcam = new tmImage.Webcam(500, 500, true);
+            await webcam.setup();
             await webcam.play();
             window.requestAnimationFrame(loop);
 
@@ -125,15 +261,13 @@
         }
 
         async function loop() {
-            webcam.update(); 
+            webcam.update();
             await predict();
             window.requestAnimationFrame(loop);
         }
 
         async function predict() {
             const prediction = await model.predict(webcam.canvas);
-            
-            // Tìm ra loại rác có % dự đoán cao nhất
             let highestProb = 0;
             let bestClass = "";
 
@@ -144,56 +278,54 @@
                 }
             }
 
-            // Chỉ xử lý nếu độ chính xác (Confidence Score) > 85%
-            if (highestProb > 0.85) {
-                document.getElementById("class-name").innerText = "Đã nhận diện: " + bestClass;
-                document.getElementById("confidence-score").innerText = "Confidence Score: " + Math.round(highestProb * 100) + "%";
+            const overlay = document.getElementById("overlay");
+            const label = document.getElementById("floating-label");
+            const desc = document.getElementById("handling-desc");
 
-                // Chỉ phát giọng nói và cộng điểm thống kê nếu là món rác mới (khác Background)
-                if (bestClass !== "Background" && bestClass !== lastSpokenClass) {
-                    speakInstruction(bestClass);
-                    updateStats(bestClass);
-                    lastSpokenClass = bestClass; 
-                } else if (bestClass === "Background") {
-                    // Reset lại khi không có rác
-                    lastSpokenClass = "Background";
-                    document.getElementById("class-name").innerText = "Đang chờ rác...";
+            if (highestProb > 0.85 && bestClass !== "Background") {
+                overlay.classList.add("active");
+                label.innerText = bestClass.toUpperCase() + " (" + Math.round(highestProb*100) + "%)";
+                
+                // Hiển thị miêu tả cách xử lý
+                let key = bestClass.toLowerCase();
+                for (let type in handlingInstructions) {
+                    if (key.includes(type)) {
+                        desc.innerText = handlingInstructions[type];
+                        break;
+                    }
                 }
+
+                if (bestClass !== lastSpokenClass) {
+                    speak(desc.innerText);
+                    updateStats(bestClass);
+                    lastSpokenClass = bestClass;
+                }
+            } else {
+                overlay.classList.remove("active");
+                desc.innerText = handlingInstructions["background"];
+                lastSpokenClass = "Background";
             }
         }
 
-        // Hàm phát giọng nói Text-to-Speech
-        function speakInstruction(className) {
-            let message = "";
-            if (className.toLowerCase().includes("nhựa")) {
-                message = "Đây là rác nhựa, vui lòng bỏ vào thùng màu vàng để tái chế.";
-            } else if (className.toLowerCase().includes("giấy")) {
-                message = "Đây là rác giấy, có thể tái chế, bỏ vào thùng màu xanh nhé.";
-            } else if (className.toLowerCase().includes("kim loại")) {
-                message = "Đây là kim loại, bỏ vào thùng màu vàng để tái chế.";
-            } else if (className.toLowerCase().includes("nguy hại") || className.toLowerCase().includes("pin")) {
-                message = "Cảnh báo, đây là rác nguy hại. Tuyệt đối không bỏ chung với rác sinh hoạt.";
-            } else {
-                message = "Vui lòng phân loại rác này vào thùng rác chung.";
-            }
-
-            let speech = new SpeechSynthesisUtterance(message);
-            speech.lang = "vi-VN"; 
-            speech.rate = 1.1; // Tốc độ đọc
+        function speak(text) {
+            window.speechSynthesis.cancel(); // Ngắt câu trước đó
+            let speech = new SpeechSynthesisUtterance(text);
+            speech.lang = "vi-VN";
+            speech.rate = 1.0;
             window.speechSynthesis.speak(speech);
         }
 
-        // Hàm cập nhật bảng thống kê
         function updateStats(className) {
-            if (className.toLowerCase().includes("nhựa")) stats["Nhựa"]++;
-            else if (className.toLowerCase().includes("giấy")) stats["Giấy"]++;
-            else if (className.toLowerCase().includes("kim loại")) stats["Kim loại"]++;
-            else if (className.toLowerCase().includes("nguy hại") || className.toLowerCase().includes("pin")) stats["Rác nguy hại"]++;
-            
+            let key = className.toLowerCase();
+            if (key.includes("nhựa")) stats["Nhựa"]++;
+            else if (key.includes("giấy")) stats["Giấy"]++;
+            else if (key.includes("kim loại")) stats["Kim loại"]++;
+            else if (key.includes("nguy hại") || key.includes("pin")) stats["Nguy hại"]++;
+
             document.getElementById("stat-nhua").innerText = stats["Nhựa"];
             document.getElementById("stat-giay").innerText = stats["Giấy"];
             document.getElementById("stat-kimloai").innerText = stats["Kim loại"];
-            document.getElementById("stat-nguyhai").innerText = stats["Rác nguy hại"];
+            document.getElementById("stat-nguyhai").innerText = stats["Nguy hại"];
         }
     </script>
 </body>
