@@ -1,0 +1,8 @@
+0 Nhựa 
+1 Giấy 
+2 Kim loại 
+3 Thủy tinh 
+4 Rác Điện Tử 
+5 Rác Hữu Cơ 
+6 Rác Vô Cơ 
+7 background
