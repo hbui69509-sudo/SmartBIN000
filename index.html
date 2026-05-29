@@ -263,7 +263,7 @@
 
             } catch (error) {
                 document.getElementById('status-msg').innerText = "Lỗi Camera: " + error.message + " (Nhớ dùng link https trên điện thoại nhé!)";
-                document.getElementById('startBtn').style.display = 'block';
+                
             }
         }
 
@@ -275,7 +275,7 @@
         }
 
         async function predict() {
-            // Đưa video vào cho AI dự đoán
+    
             const prediction = await model.predict(videoElement);
             
             let highestProb = 0;
