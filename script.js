@@ -1,3 +1,4 @@
+// LINK CỦA BẠN ĐÃ ĐƯỢC CHÈN SẴN VÀO ĐÂY
 const URL = "https://teachablemachine.withgoogle.com/models/eUC93yBYY/";
 
 let model, webcam, maxPredictions;
@@ -34,10 +35,24 @@ function renderStats() {
 }
 renderStats();
 
+// NẠP DANH SÁCH GIỌNG NÓI CỦA TRÌNH DUYỆT
+let availableVoices = [];
+window.speechSynthesis.onvoiceschanged = () => {
+    availableVoices = window.speechSynthesis.getVoices();
+};
+
 function speakVietnamese(text) {
     if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); 
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'vi-VN';
+        utterance.rate = 1.0; 
+        
+        let voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
+        let viVoice = voices.find(voice => voice.lang.includes('vi') || voice.name.includes('Vietnamese') || voice.name.includes('Google tiếng Việt'));
+        
+        if (viVoice) utterance.voice = viVoice;
+
         window.speechSynthesis.speak(utterance);
     }
 }
@@ -62,7 +77,7 @@ async function init() {
 
         document.getElementById("webcam-container").appendChild(webcam.canvas);
         
-        // Hiện khung ngắm xanh lên
+        // Hiện khung ngắm ROI sau khi camera lên
         document.getElementById("roi-box").style.display = "block";
         
         startBtn.style.display = "none";
@@ -74,8 +89,7 @@ async function init() {
         isCameraReady = true;
 
     } catch (error) {
-        alert("Lỗi tải Model! Hãy kiểm tra lại mạng hoặc quyền Camera.");
-        console.error(error);
+        alert("Lỗi tải Model! Kiểm tra mạng hoặc cấp quyền Camera.");
         startBtn.innerText = "Lỗi kết nối. F5 thử lại.";
     }
 }
@@ -85,7 +99,7 @@ async function loop() {
     window.requestAnimationFrame(loop);
 }
 
-// HÀM QUÉT RÁC SỬ DỤNG THUẬT TOÁN CẮT ẢNH ROI
+// HÀM QUÉT RÁC THEO VÙNG KHUNG NGẮM (ROI)
 async function scanTrash() {
     if (!isCameraReady) return;
 
@@ -94,13 +108,13 @@ async function scanTrash() {
     const popup = document.getElementById("result-popup");
     const roiBox = document.getElementById("roi-box");
 
-    // Bật hiệu ứng quét chớp nháy
+    // Bật hiệu ứng quét nhấp nháy trên viền khung
     roiBox.classList.add("scanning");
     scanBtn.innerText = "⏳ ĐANG PHÂN TÍCH...";
     statusBadge.innerText = "ĐANG PHÂN TÍCH";
     statusBadge.style.color = "yellow";
 
-    // 1. Thuật toán cắt ảnh trong khung ngắm (300x300)
+    // 1. Cắt ảnh 300x300 ngay giữa tâm Camera
     const roiSize = 300;
     const startX = (webcam.canvas.width - roiSize) / 2;
     const startY = (webcam.canvas.height - roiSize) / 2;
@@ -109,11 +123,10 @@ async function scanTrash() {
     hiddenCanvas.width = roiSize;
     hiddenCanvas.height = roiSize;
     const ctx = hiddenCanvas.getContext("2d");
-
-    // Copy ảnh từ webcam sang khung vẽ ẩn
+    
     ctx.drawImage(webcam.canvas, startX, startY, roiSize, roiSize, 0, 0, roiSize, roiSize);
 
-    // 2. Gửi ảnh đã cắt cho AI phân tích
+    // 2. Gửi mảnh ảnh đã cắt (chỉ chứa rác) cho AI phân tích
     const prediction = await model.predict(hiddenCanvas);
     
     let bestClass = "";
@@ -153,7 +166,7 @@ async function scanTrash() {
                 statusBadge.innerText = "ĐANG CHỜ";
                 statusBadge.style.color = "#00ff00";
                 scanBtn.innerText = "🎯 NHẬN DIỆN RÁC";
-                roiBox.classList.remove("scanning"); // Tắt hiệu ứng quét
+                roiBox.classList.remove("scanning"); // Tắt hiệu ứng
             }, 4000);
             
             return;
@@ -164,5 +177,5 @@ async function scanTrash() {
     scanBtn.innerText = "🎯 NHẬN DIỆN RÁC";
     statusBadge.innerText = "ĐANG CHỜ";
     statusBadge.style.color = "#00ff00";
-    roiBox.classList.remove("scanning"); // Tắt hiệu ứng quét
+    roiBox.classList.remove("scanning"); 
 }
