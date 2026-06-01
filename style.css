@@ -9,13 +9,13 @@ body { background-color: #141419; color: white; display: flex; flex-direction: c
 /* Layout chính */
 .main-container { display: flex; flex: 1; padding: 20px; gap: 20px; }
 
-/* Cột Camera & Khung ngắm ROI */
+/* Cột Camera */
 .camera-section { flex: 2; background: #28282d; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border: 1px solid #444; }
 
 #webcam-container { position: relative; display: inline-block; overflow: hidden; border-radius: 8px; border: 3px solid #555; }
 #webcam-container canvas { display: block; transform: scaleX(-1); }
 
-/* Thiết kế khung ngắm mục tiêu ở giữa camera */
+/* THIẾT KẾ KHUNG NGẮM ROI */
 #roi-box {
     position: absolute;
     top: 50%;
@@ -24,13 +24,13 @@ body { background-color: #141419; color: white; display: flex; flex-direction: c
     width: 300px;
     height: 300px;
     border: 3px dashed #00ff00;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); /* Làm tối vùng xung quanh */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); /* Làm tối vùng ngoài khung */
     pointer-events: none;
     z-index: 2;
     transition: 0.3s;
 }
 
-/* Hiệu ứng nhấp nháy khi đang phân tích rác */
+/* Hiệu ứng chớp nháy viền khi đang phân tích */
 @keyframes scan-pulse {
     0% { border-color: #00ff00; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); }
     50% { border-color: #00dcff; box-shadow: 0 0 15px #00dcff, 0 0 0 9999px rgba(0, 0, 0, 0.8); border-style: solid; }
