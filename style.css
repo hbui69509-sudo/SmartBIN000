@@ -1,4 +1,3 @@
-/* style.css */
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
 body { background-color: #141419; color: white; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
@@ -11,8 +10,8 @@ body { background-color: #141419; color: white; display: flex; flex-direction: c
 .main-container { display: flex; flex: 1; padding: 20px; gap: 20px; }
 
 /* Cột Camera */
-.camera-section { flex: 2; background: #28282d; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; position: relative; border: 1px solid #444; }
-#webcam-container canvas { width: 100%; max-width: 600px; border-radius: 8px; border: 3px solid #555; transform: scaleX(-1); /* Lật gương camera */ }
+.camera-section { flex: 2; background: #28282d; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border: 1px solid #444; }
+#webcam-container canvas { width: 100%; max-width: 600px; border-radius: 8px; border: 3px solid #555; transform: scaleX(-1); }
 
 .btn-container { margin-top: 20px; display: flex; gap: 15px; }
 .btn { padding: 12px 30px; font-size: 18px; font-weight: bold; border: none; border-radius: 25px; cursor: pointer; transition: 0.3s; }
