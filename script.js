@@ -1,10 +1,10 @@
-
+// Link mô hình của bạn đã được dán sẵn
 const URL = "https://teachablemachine.withgoogle.com/models/eUC93yBYY/";
 
 let model, webcam, maxPredictions;
 let isCameraReady = false;
 
-// 1. TỪ ĐIỂN DỮ LIỆU (Đã bổ sung Thủy Tinh)
+// 1. TỪ ĐIỂN DỮ LIỆU
 const dict = {
     "nhựa": { name: "RÁC NHỰA", action: "Bỏ Thùng Vàng", color: "#00dcff", speak: "Nhựa. Vui lòng bỏ vào thùng màu vàng." },
     "giấy": { name: "RÁC GIẤY", action: "Bỏ Thùng Xanh Dương", color: "#ff9600", speak: "Giấy. Vui lòng bỏ vào thùng màu xanh dương." },
@@ -22,6 +22,8 @@ let totalTrash = 0;
 // 3. VẼ GIAO DIỆN THỐNG KÊ LÊN HTML
 function renderStats() {
     const list = document.getElementById("stats-list");
+    if (!list) return; // Tránh lỗi nếu chưa load xong HTML
+    
     list.innerHTML = "";
     for (let key in stats) {
         if(dict[key]) {
@@ -34,7 +36,7 @@ function renderStats() {
         }
     }
 }
-// Vẽ luôn khi trang vừa load
+// Vẽ luôn bảng thống kê
 renderStats();
 
 // 4. HỆ THỐNG PHÁT ÂM THANH TIẾNG VIỆT
@@ -56,8 +58,97 @@ async function init() {
     const metadataURL = URL + "metadata.json";
 
     try {
-        // Tải Model
         model = await tmImage.load(modelURL, metadataURL);
         maxPredictions = model.getTotalClasses();
 
-        // Bật Webcam
+        const flip = true; 
+        webcam = new tmImage.Webcam(600, 600, flip); 
+        await webcam.setup(); 
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        
+        startBtn.style.display = "none";
+        document.getElementById("scan-btn").style.display = "block";
+        
+        const statusBadge = document.getElementById("status-badge");
+        statusBadge.innerText = "ĐANG CHỜ";
+        statusBadge.style.color = "#00ff00";
+        isCameraReady = true;
+
+    } catch (error) {
+        alert("Lỗi tải Model! Hãy kiểm tra lại mạng hoặc quyền Camera.");
+        console.error(error);
+        startBtn.innerText = "Lỗi kết nối. F5 thử lại.";
+    }
+}
+
+// Vòng lặp cập nhật khung hình
+async function loop() {
+    webcam.update(); 
+    window.requestAnimationFrame(loop);
+}
+
+// 6. XỬ LÝ KHI BẤM NÚT NHẬN DIỆN
+async function scanTrash() {
+    if (!isCameraReady) return;
+
+    const scanBtn = document.getElementById("scan-btn");
+    const statusBadge = document.getElementById("status-badge");
+    const popup = document.getElementById("result-popup");
+
+    scanBtn.innerText = "⏳ ĐANG PHÂN TÍCH...";
+    statusBadge.innerText = "ĐANG PHÂN TÍCH";
+    statusBadge.style.color = "yellow";
+
+    const prediction = await model.predict(webcam.canvas);
+    
+    let bestClass = "";
+    let highestProb = 0;
+    for (let i = 0; i < maxPredictions; i++) {
+        if (prediction[i].probability > highestProb) {
+            highestProb = prediction[i].probability;
+            bestClass = prediction[i].className.toLowerCase();
+        }
+    }
+
+    if (highestProb > 0.70 && !bestClass.includes("background")) {
+        let foundKey = Object.keys(dict).find(k => bestClass.includes(k));
+        
+        if (foundKey) {
+            let info = dict[foundKey];
+            let conf = Math.round(highestProb * 100);
+
+            document.getElementById("res-name").innerText = `♻️ ${info.name} (${conf}%)`;
+            document.getElementById("res-name").style.color = info.color;
+            document.getElementById("res-action").innerText = `Hướng dẫn: ${info.action}`;
+            popup.style.borderColor = info.color;
+            popup.style.display = "block";
+
+            statusBadge.innerText = "ĐÃ NHẬN DIỆN";
+            statusBadge.style.color = "#00dcff";
+
+            stats[foundKey]++;
+            totalTrash++;
+            document.getElementById(`count-${foundKey}`).innerText = stats[foundKey];
+            document.getElementById("total-count").innerText = totalTrash;
+
+            speakVietnamese(info.speak);
+
+            setTimeout(() => {
+                popup.style.display = "none";
+                statusBadge.innerText = "ĐANG CHỜ";
+                statusBadge.style.color = "#00ff00";
+                scanBtn.innerText = "🎯 NHẬN DIỆN RÁC";
+            }, 4000);
+            
+            return;
+        }
+    }
+    
+    speakVietnamese("Không nhận diện được vật thể rõ ràng. Vui lòng thử lại.");
+    scanBtn.innerText = "🎯 NHẬN DIỆN RÁC";
+    statusBadge.innerText = "ĐANG CHỜ";
+    statusBadge.style.color = "#00ff00";
+}
