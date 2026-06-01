@@ -1,10 +1,8 @@
-// Link mô hình của bạn đã được dán sẵn
 const URL = "https://teachablemachine.withgoogle.com/models/eUC93yBYY/";
 
 let model, webcam, maxPredictions;
 let isCameraReady = false;
 
-// 1. TỪ ĐIỂN DỮ LIỆU
 const dict = {
     "nhựa": { name: "RÁC NHỰA", action: "Bỏ Thùng Vàng", color: "#00dcff", speak: "Nhựa. Vui lòng bỏ vào thùng màu vàng." },
     "giấy": { name: "RÁC GIẤY", action: "Bỏ Thùng Xanh Dương", color: "#ff9600", speak: "Giấy. Vui lòng bỏ vào thùng màu xanh dương." },
@@ -15,14 +13,12 @@ const dict = {
     "rác vô cơ": { name: "VÔ CƠ", action: "Bỏ Thùng Đỏ", color: "#0064ff", speak: "Rác vô cơ sinh hoạt. Vui lòng bỏ thùng đỏ." }
 };
 
-// 2. KHỞI TẠO BỘ ĐẾM THỐNG KÊ
 let stats = { "nhựa": 0, "giấy": 0, "kim loại": 0, "thủy tinh": 0, "rác điện tử": 0, "rác hữu cơ": 0, "rác vô cơ": 0 };
 let totalTrash = 0;
 
-// 3. VẼ GIAO DIỆN THỐNG KÊ LÊN HTML
 function renderStats() {
     const list = document.getElementById("stats-list");
-    if (!list) return; // Tránh lỗi nếu chưa load xong HTML
+    if (!list) return; 
     
     list.innerHTML = "";
     for (let key in stats) {
@@ -36,10 +32,8 @@ function renderStats() {
         }
     }
 }
-// Vẽ luôn bảng thống kê
 renderStats();
 
-// 4. HỆ THỐNG PHÁT ÂM THANH TIẾNG VIỆT
 function speakVietnamese(text) {
     if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(text);
@@ -48,7 +42,6 @@ function speakVietnamese(text) {
     }
 }
 
-// 5. KHỞI ĐỘNG CAMERA & TẢI NÃO AI
 async function init() {
     const startBtn = document.getElementById("start-btn");
     startBtn.innerText = "Đang tải AI, đợi xíu...";
@@ -69,6 +62,9 @@ async function init() {
 
         document.getElementById("webcam-container").appendChild(webcam.canvas);
         
+        // Hiện khung ngắm xanh lên
+        document.getElementById("roi-box").style.display = "block";
+        
         startBtn.style.display = "none";
         document.getElementById("scan-btn").style.display = "block";
         
@@ -84,25 +80,41 @@ async function init() {
     }
 }
 
-// Vòng lặp cập nhật khung hình
 async function loop() {
     webcam.update(); 
     window.requestAnimationFrame(loop);
 }
 
-// 6. XỬ LÝ KHI BẤM NÚT NHẬN DIỆN
+// HÀM QUÉT RÁC SỬ DỤNG THUẬT TOÁN CẮT ẢNH ROI
 async function scanTrash() {
     if (!isCameraReady) return;
 
     const scanBtn = document.getElementById("scan-btn");
     const statusBadge = document.getElementById("status-badge");
     const popup = document.getElementById("result-popup");
+    const roiBox = document.getElementById("roi-box");
 
+    // Bật hiệu ứng quét chớp nháy
+    roiBox.classList.add("scanning");
     scanBtn.innerText = "⏳ ĐANG PHÂN TÍCH...";
     statusBadge.innerText = "ĐANG PHÂN TÍCH";
     statusBadge.style.color = "yellow";
 
-    const prediction = await model.predict(webcam.canvas);
+    // 1. Thuật toán cắt ảnh trong khung ngắm (300x300)
+    const roiSize = 300;
+    const startX = (webcam.canvas.width - roiSize) / 2;
+    const startY = (webcam.canvas.height - roiSize) / 2;
+
+    const hiddenCanvas = document.createElement("canvas");
+    hiddenCanvas.width = roiSize;
+    hiddenCanvas.height = roiSize;
+    const ctx = hiddenCanvas.getContext("2d");
+
+    // Copy ảnh từ webcam sang khung vẽ ẩn
+    ctx.drawImage(webcam.canvas, startX, startY, roiSize, roiSize, 0, 0, roiSize, roiSize);
+
+    // 2. Gửi ảnh đã cắt cho AI phân tích
+    const prediction = await model.predict(hiddenCanvas);
     
     let bestClass = "";
     let highestProb = 0;
@@ -141,6 +153,7 @@ async function scanTrash() {
                 statusBadge.innerText = "ĐANG CHỜ";
                 statusBadge.style.color = "#00ff00";
                 scanBtn.innerText = "🎯 NHẬN DIỆN RÁC";
+                roiBox.classList.remove("scanning"); // Tắt hiệu ứng quét
             }, 4000);
             
             return;
@@ -151,4 +164,5 @@ async function scanTrash() {
     scanBtn.innerText = "🎯 NHẬN DIỆN RÁC";
     statusBadge.innerText = "ĐANG CHỜ";
     statusBadge.style.color = "#00ff00";
+    roiBox.classList.remove("scanning"); // Tắt hiệu ứng quét
 }
