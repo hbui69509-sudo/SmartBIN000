@@ -1,0 +1,84 @@
+# main.py
+import cv2
+import time
+import config
+from utils import speak_vietnamese, export_report
+from ai_core import SmartBinAI
+from ui_manager import UIManager
+
+def main():
+    # 1. Khởi tạo các module
+    ai = SmartBinAI()
+    ui = UIManager()
+    
+    thong_ke_rac = {key: 0 for key in config.INSTRUCTIONS.keys()}
+    tong_rac = 0
+    
+    camera_id = 1 
+    camera = cv2.VideoCapture(camera_id)
+
+    app_state = "WAITING" 
+    show_result_until = 0
+    current_display_info = None
+    current_confidence = 0
+
+    # 2. Vòng lặp ứng dụng
+    while True:
+        success, raw_frame = camera.read()
+        if not success:
+            time.sleep(0.5)
+            continue
+
+        # Cập nhật Giao diện
+        canvas, start_x, start_y, box_size = ui.draw_main_screen(
+            raw_frame, app_state, current_display_info, current_confidence, thong_ke_rac, tong_rac
+        )
+        
+        cv2.imshow("Modern SmartBin UI - MVC Architecture", canvas)
+
+        # Quay lại trạng thái chờ
+        if app_state == "SHOW_RESULT" and time.time() > show_result_until:
+            app_state = "WAITING"
+
+        # 3. Lắng nghe phím bấm
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            break
+            
+        elif key == ord(' ') and app_state == "WAITING":
+            # Cắt ảnh khung ngắm
+            cam_w, cam_h = 840, 600
+            frame_resized = cv2.resize(raw_frame, (cam_w, cam_h))
+            img_crop = frame_resized[start_y:start_y+box_size, start_x:start_x+box_size]
+
+            # Kiểm tra khuôn mặt
+            if ai.check_face(frame_resized):
+                speak_vietnamese("Phát hiện khuôn mặt. Vui lòng bỏ rác vào khung.")
+                continue 
+            
+            # Dự đoán rác
+            class_name, confidence = ai.predict_trash(img_crop)
+
+            if confidence > 0.75 and "background" not in class_name:
+                for k in config.INSTRUCTIONS:
+                    if k in class_name:
+                        current_display_info = config.INSTRUCTIONS[k]
+                        current_confidence = round(confidence * 100)
+                        
+                        thong_ke_rac[k] += 1
+                        tong_rac += 1
+                        
+                        speak_vietnamese(current_display_info["speak"])
+                        app_state = "SHOW_RESULT"
+                        show_result_until = time.time() + 4
+                        break
+            else:
+                speak_vietnamese("Không nhận diện được vật thể rõ ràng. Vui lòng thử lại.")
+
+    # 4. Thoát và lưu báo cáo
+    camera.release()
+    cv2.destroyAllWindows()
+    export_report(thong_ke_rac, tong_rac, config.INSTRUCTIONS)
+
+if __name__ == "__main__":
+    main()
