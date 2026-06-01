@@ -7,7 +7,6 @@
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,7 +18,9 @@
 
     <div class="main-container">
         <div class="camera-section">
-            <div id="webcam-container"></div>
+            <div id="webcam-container">
+                <div id="roi-box" style="display: none;"></div>
+            </div>
             
             <div class="btn-container">
                 <button class="btn btn-start" id="start-btn" onclick="init()">Bật Camera</button>
@@ -34,7 +35,6 @@
 
         <div class="stats-section">
             <h2>📊 THỐNG KÊ RÁC</h2>
-            
             <div id="stats-list"></div>
             
             <div class="total-box">
