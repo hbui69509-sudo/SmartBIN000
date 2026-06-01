@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartBin Kiosk - PTIT AI</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="header">
+        <h1>✨ SMARTBIN AI </h1>
+        <div class="status" id="status-badge">CHƯA BẬT CAMERA</div>
+    </div>
+
+    <div class="main-container">
+        <div class="camera-section">
+            <div id="webcam-container"></div>
+            
+            <div class="btn-container">
+                <button class="btn btn-start" id="start-btn" onclick="init()">Bật Camera</button>
+                <button class="btn btn-scan" id="scan-btn" onclick="scanTrash()">🎯 NHẬN DIỆN RÁC</button>
+            </div>
+            
+            <div id="result-popup">
+                <h1 id="res-name">RÁC NHỰA</h1>
+                <p id="res-action">Bỏ thùng vàng</p>
+            </div>
+        </div>
+
+        <div class="stats-section">
+            <h2>📊 THỐNG KÊ RÁC</h2>
+            <div id="stats-list">
+                </div>
+            
+            <div class="total-box">
+                <h3>TỔNG CỘNG</h3>
+                <span id="total-count">0</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
