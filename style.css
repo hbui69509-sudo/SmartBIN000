@@ -1,0 +1,38 @@
+/* style.css */
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+body { background-color: #141419; color: white; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* Header */
+.header { background-color: #1e9650; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+.header h1 { font-size: 24px; font-weight: 600; }
+.status { background-color: #146432; padding: 8px 15px; border-radius: 20px; color: #00ff00; font-weight: bold; }
+
+/* Layout chính */
+.main-container { display: flex; flex: 1; padding: 20px; gap: 20px; }
+
+/* Cột Camera */
+.camera-section { flex: 2; background: #28282d; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; position: relative; border: 1px solid #444; }
+#webcam-container canvas { width: 100%; max-width: 600px; border-radius: 8px; border: 3px solid #555; transform: scaleX(-1); /* Lật gương camera */ }
+
+.btn-container { margin-top: 20px; display: flex; gap: 15px; }
+.btn { padding: 12px 30px; font-size: 18px; font-weight: bold; border: none; border-radius: 25px; cursor: pointer; transition: 0.3s; }
+.btn-start { background-color: #ff9600; color: #000; }
+.btn-scan { background-color: #00dcff; color: #000; box-shadow: 0 0 15px rgba(0, 220, 255, 0.4); display: none; }
+.btn:hover { transform: scale(1.05); }
+
+/* Cột Thống kê */
+.stats-section { flex: 1; background: #28282d; border-radius: 12px; padding: 20px; border: 1px solid #444; display: flex; flex-direction: column; }
+.stats-section h2 { border-bottom: 2px solid #555; padding-bottom: 10px; margin-bottom: 20px; color: #ffcc00; }
+
+.stat-card { background: #323237; margin-bottom: 15px; padding: 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid gray; }
+.stat-name { font-size: 18px; font-weight: bold; color: #eee; }
+.stat-value { font-size: 22px; font-weight: bold; }
+
+.total-box { margin-top: auto; background: #1e1e23; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #555; }
+.total-box h3 { color: #aaa; margin-bottom: 10px; }
+.total-box span { font-size: 40px; color: #00ff00; font-weight: bold; }
+
+/* Pop-up Kết quả */
+#result-popup { display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); background: #222; padding: 30px; border-radius: 12px; border-top: 8px solid #00dcff; box-shadow: 0 10px 30px rgba(0,0,0,0.9); text-align: center; z-index: 10; min-width: 450px; }
+#result-popup h1 { font-size: 32px; margin-bottom: 10px; }
+#result-popup p { font-size: 22px; color: #ccc; }
