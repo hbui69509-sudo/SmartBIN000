@@ -44,4 +44,3 @@ def export_report(thong_ke_rac, tong_rac, instructions):
             for loai, so_luong in thong_ke_rac.items():
                 f.write(f"- {instructions[loai]['name']}: {so_luong}\n")
             f.write(f"\n=> TỔNG CỘNG: {tong_rac}\n")
-        print(f"Đã lưu báo cáo: {ten_file}")
