@@ -1,5 +1,5 @@
 // LINK CỦA BẠN ĐÃ ĐƯỢC CHÈN SẴN VÀO ĐÂY
-const URL = "https://teachablemachine.withgoogle.com/models/eUC93yBYY/";
+const URL = "https://teachablemachine.withgoogle.com/models/J6zhgar8S/";
 
 let model, webcam, maxPredictions;
 let isCameraReady = false;
