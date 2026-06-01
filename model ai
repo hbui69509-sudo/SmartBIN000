@@ -1,0 +1,44 @@
+# ai_core.py
+import cv2
+import numpy as np
+import os
+from keras.models import load_model
+import mediapipe as mp
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+class SmartBinAI:
+    def __init__(self, model_path="keras_model.h5", labels_path="labels.txt"):
+        print("Đang khởi động não bộ AI...")
+        try:
+            self.model = load_model(model_path, compile=False)
+            self.class_names = [line.strip() for line in open(labels_path, "r", encoding="utf-8").readlines()]
+        except Exception as e:
+            print(f"LỖI TẢI MÔ HÌNH: {e}")
+            exit()
+            
+        self.mp_face = mp.solutions.face_detection
+        self.face_detector = self.mp_face.FaceDetection(min_detection_confidence=0.6)
+        print("AI đã sẵn sàng!")
+
+    def check_face(self, frame):
+        """Trả về True nếu phát hiện khuôn mặt."""
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.face_detector.process(rgb_frame)
+        return bool(results.detections)
+
+    def predict_trash(self, img_crop):
+        """Nhận diện rác và trả về (Tên_class, Độ_chính_xác)."""
+        img_model = cv2.resize(img_crop, (224, 224), interpolation=cv2.INTER_AREA)
+        img_array = np.asarray(img_model, dtype=np.float32).reshape(1, 224, 224, 3)
+        img_array = (img_array / 127.5) - 1
+
+        prediction = self.model.predict(img_array, verbose=0)
+        best_index = np.argmax(prediction)
+        confidence = prediction[0][best_index]
+        
+        class_name = self.class_names[best_index].lower()
+        if " " in class_name and class_name.split(" ")[0].isdigit():
+            class_name = class_name.split(" ", 1)[1]
+            
+        return class_name, confidence
