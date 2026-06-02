@@ -14,7 +14,7 @@ Dự án không chỉ sử dụng AI nhận diện hình ảnh cơ bản mà cò
 *   **📱 Tra cứu Wikipedia (QR Code):** Sau khi nhận diện thành công, hệ thống tự động tạo mã QR trỏ đến trang Wikipedia của vật liệu đó để người dùng tra cứu kiến thức. Bảng mã QR sẽ duy trì hiển thị cho đến khi người dùng chủ động tắt[cite: 1, 2].
 *   **📈 Thống kê & Lịch sử:** Lưu trữ lịch sử các lần quét gần nhất cùng mốc thời gian thực và đếm tổng số lượng từng loại rác đã nhận diện[cite: 1, 2].
 
-## 🗑️ Danh mục rác hỗ trợ (7 Lớp)
+## 🗑️ Danh mục rác hỗ trợ (7 Phân loại)
 
 Hệ thống được huấn luyện để nhận diện 7 loại rác thải sinh hoạt cơ bản:
 1.  **Nhựa** 🧴 (Bỏ thùng vàng)[cite: 1]
