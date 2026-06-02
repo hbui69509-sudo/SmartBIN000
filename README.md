@@ -1,34 +1,46 @@
-## ♻️ SmartBin - Hệ thống hỗ trợ phân loại rác tại nguồn thông minh (AIoT)
+# ♻️ SmartBin Kiosk - AI Trash Classification (PTIT)
 
-> **Học phần:** Nhập môn AIoT (Artificial Intelligence of Things)  
-> **Học viện:** Học viện Công nghệ Bưu chính Viễn thông (PTIT)
+Hệ thống nhận diện và phân loại rác thải thông minh theo thời gian thực sử dụng Trí tuệ nhân tạo (AI). Đồ án ứng dụng Computer Vision chạy trực tiếp trên trình duyệt web.
 
----
+## 🌟 Chức năng nổi bật
 
-## 📖 1. Tổng quan dự án (Abstract)
-**SmartBin** là dự án ứng dụng Thị giác máy tính (Computer Vision) kết hợp công nghệ Web để giải quyết bài toán phân loại rác thải tại nguồn. Hệ thống cho phép nhận diện các loại vật liệu rác thải theo thời gian thực (Real-time) thông qua camera, từ đó đưa ra hướng dẫn phân loại bằng hình ảnh và giọng nói tiếng Việt nhằm hỗ trợ người dùng vứt rác đúng quy định.
+Dự án không chỉ sử dụng AI nhận diện hình ảnh cơ bản mà còn được tích hợp các thuật toán xử lý luồng camera nâng cao:
 
-## ⚙️ 2. Kiến trúc hệ thống (System Architecture)
-Hệ thống được thiết kế theo mô hình Edge Computing (xử lý tại biên - ngay trên trình duyệt máy khách) để tối ưu hóa tốc độ phản hồi và bảo mật dữ liệu người dùng.
+*   **🏃 Nhận diện chuyển động (Motion Detection):** Tự động tính toán sự thay đổi pixel (Pixel Diff) trong khung hình. Khi có vật thể (rác) chuyển động vào vùng quét, hệ thống mới kích hoạt AI để phân tích, giúp tiết kiệm tài nguyên xử lý[cite: 1].
+*   **🤖 Chế độ tự động (Auto Mode):** Hỗ trợ bật/tắt tính năng tự động quét. Khi phát hiện vật thể đứng yên đủ lâu (600ms), hệ thống sẽ tự động chụp ảnh và phân tích mà không cần bấm nút[cite: 1].
+*   **🎯 Nhận diện theo Vùng quan tâm (ROI Crop):** Thay vì đưa toàn bộ khung hình camera vào AI gây nhiễu, hệ thống chỉ cắt đúng vùng viền nét đứt ở giữa màn hình (ROI) để phân tích, tăng độ chính xác lên mức tối đa[cite: 1].
+*   **📊 Biểu đồ tỷ lệ (Confidence Bars Real-time):** Hiển thị trực tiếp phần trăm độ tin cậy của mô hình AI cho từng loại rác theo thời gian thực (60 FPS)[cite: 1, 2].
+*   **🔊 Tương tác giọng nói Tiếng Việt:** AI tự động đọc tên loại rác và hướng dẫn bỏ vào đúng thùng (Thùng vàng, Xanh lá, Đỏ...) bằng giọng nói Tiếng Việt[cite: 1].
+*   **📱 Tra cứu Wikipedia (QR Code):** Sau khi nhận diện thành công, hệ thống tự động tạo mã QR trỏ đến trang Wikipedia của vật liệu đó để người dùng tra cứu kiến thức. Bảng mã QR sẽ duy trì hiển thị cho đến khi người dùng chủ động tắt[cite: 1, 2].
+*   **📈 Thống kê & Lịch sử:** Lưu trữ lịch sử các lần quét gần nhất cùng mốc thời gian thực và đếm tổng số lượng từng loại rác đã nhận diện[cite: 1, 2].
 
-* **Thu thập dữ liệu (Data Collection):** Sử dụng Webcam để bắt khung hình (frames) liên tục ở tốc độ 30 FPS.
-* **Mô hình Trí tuệ nhân tạo (AI Model):** Sử dụng mạng nơ-ron tích chập (CNN) được huấn luyện qua nền tảng Google Teachable Machine. Mô hình được xuất ra dưới định dạng `TensorFlow.js`.
-* **Giao diện & Logic (Frontend & Control Logic):** Xây dựng bằng HTML/CSS/JS thuần. Tích hợp thuật toán lọc nhiễu (chỉ nhận diện khi Confidence Score > 85%) và tránh cảnh báo lặp (Debouncing).
-* **Tương tác người - máy (HCI):** Sử dụng `Web Speech API` để chuyển đổi văn bản thành giọng nói (Text-to-Speech) hướng dẫn người dùng.
+## 🗑️ Danh mục rác hỗ trợ (7 Lớp)
 
-## 🌟 3. Các tính năng chính (Key Features)
-- [x] **Nhận diện Real-time đa lớp:** Phân loại chính xác 4 nhóm rác chính (Nhựa, Giấy, Kim loại, Rác nguy hại/Điện tử).
-- [x] **Xử lý nhiễu bối cảnh:** Được huấn luyện lớp `Background` chuyên biệt (người dùng tay không/bối cảnh phòng) để triệt tiêu hiện tượng nhận diện sai (False Positive).
-- [x] **Trợ lý giọng nói (Voice Assistant):** Tự động phát âm thanh hướng dẫn bằng tiếng Việt phù hợp với từng loại rác.
-- [x] **Bảng thống kê (Dashboard):** Ghi nhận và đếm số lượng các loại rác đã được phân loại trong phiên sử dụng.
+Hệ thống được huấn luyện để nhận diện 7 loại rác thải sinh hoạt cơ bản:
+1.  **Nhựa** 🧴 (Bỏ thùng vàng)[cite: 1]
+2.  **Giấy** 📄 (Bỏ thùng xanh dương)[cite: 1]
+3.  **Kim loại** 🔩 (Bỏ thùng vàng)[cite: 1]
+4.  **Thủy tinh** 🍾 (Cẩn thận rơi vỡ, Bỏ thùng vàng)[cite: 1]
+5.  **Rác điện tử** 📱 (Rác nguy hại, Thu gom riêng)[cite: 1]
+6.  **Rác hữu cơ** 🍃 (Bỏ thùng xanh lá)[cite: 1]
+7.  **Rác vô cơ** 🗑️ (Bỏ thùng đỏ)[cite: 1]
 
-## 🛠️ 4. Công nghệ sử dụng (Technologies Stack)
-* **Core AI:** Google Teachable Machine, TensorFlow.js
-* **Frontend:** HTML5, CSS3, JavaScript (ES6+)
-* **API tích hợp:** Web Speech API (Text-to-Speech)
-* **Triển khai (Deployment):** GitHub Pages
+## 🛠️ Công nghệ sử dụng
 
-## 🚀 5. Hướng dẫn cài đặt & Chạy thử nghiệm (Usage)
-1. Clone repository này về máy tính:
+*   **Frontend:** HTML5, CSS3, JavaScript ES6.
+*   **AI Engine:** TensorFlow.js (`tfjs`)[cite: 2] kết hợp mô hình học máy của Teachable Machine.
+*   **Libraries:** `teachablemachine-image`, `qrcodejs` (Tạo QR Code tự động)[cite: 2].
+*   **Trình duyệt:** Sử dụng WebRTC để truy cập Webcam[cite: 1].
+
+## 🚀 Hướng dẫn cài đặt & Chạy dự án
+
+Vì dự án chạy thuần 100% trên trình duyệt (Client-side), bạn không cần cài đặt Backend hay Database.
+
+1.  Clone kho lưu trữ này về máy:
 ```bash
-git clone [https://github.com/hbui69509-sudo/SmartBIN000.git](https://github.com/hbui69509-sudo/SmartBIN000.git)
+    git clone [đường_link_github_của_bạn]
+    ```
+2.  Sử dụng **Live Server** (Extention của VS Code) để mở file `index.html`.
+    *(Lưu ý: Camera yêu cầu trình duyệt phải chạy trên nền tảng `localhost` hoặc `https://`).*
+3.  Cho phép trình duyệt truy cập Camera.
+4.  Đưa rác vào vùng khung viền nét đứt trên màn hình và trải nghiệm!
