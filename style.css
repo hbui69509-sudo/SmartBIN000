@@ -87,6 +87,16 @@ body { background: var(--bg-base); color: var(--text); font-family: var(--font-b
 #roi-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%;
                pointer-events: none; z-index: 3; }
 
+/* Countdown ring (auto mode) */
+.countdown-ring { position: absolute; top: 8px; right: 8px; z-index: 5; display: none; }
+.countdown-ring svg { transform: rotate(-90deg); }
+.countdown-ring .ring-bg   { fill: none; stroke: rgba(255,255,255,.1); stroke-width: 4; }
+.countdown-ring .ring-fill { fill: none; stroke: var(--cyan); stroke-width: 4;
+                              stroke-linecap: round; transition: stroke-dashoffset .1s linear; }
+.countdown-ring .ring-text { position: absolute; top: 50%; left: 50%;
+                              transform: translate(-50%,-50%); font-family: var(--font-d);
+                              font-size: 13px; color: var(--cyan); }
+
 /* Confidence panel */
 .confidence-panel { width: 100%; background: var(--bg-card); border-radius: 8px;
                     padding: 10px 14px; border: 1px solid var(--border); flex-shrink: 0; }
@@ -171,20 +181,6 @@ body { background: var(--bg-base); color: var(--text); font-family: var(--font-b
                 padding: 4px 7px; background: var(--bg-base); border-radius: 5px; }
 .h-time       { color: var(--muted); font-size: 10px; }
 .history-empty { font-size: 12px; color: var(--muted); text-align: center; padding: 4px 0; }
-
-/* ── KHUNG TÍCH ĐIỂM ── */
-.points-box { background: var(--bg-card); padding: 12px; border-radius: 10px; border: 1px solid var(--border); text-align: center; flex-shrink: 0; }
-.points-box h3 { font-family: var(--font-d); font-size: 10px; color: var(--yellow); letter-spacing: 2px; margin-bottom: 4px; }
-.points-score { font-size: 26px; font-weight: 900; color: var(--green); font-family: var(--font-d); }
-.pt-unit { font-size: 11px; color: var(--muted); margin-left: 4px; }
-.pt-bar-track { height: 6px; background: var(--bg-base); border-radius: 3px; margin-top: 8px; overflow: hidden; }
-.pt-bar-fill { height: 100%; width: 0%; background: var(--yellow); transition: width 0.4s ease; box-shadow: 0 0 10px var(--yellow); }
-
-/* ── POPUP NHẬN THƯỞNG (Kế thừa Result Popup) ── */
-#reward-popup { display: none; position: absolute; top: 46%; left: 50%; transform: translate(-50%,-50%); background: rgba(13,13,18,.97); backdrop-filter: blur(16px); padding: 24px 28px; border-radius: 16px; border: 2px solid var(--yellow); box-shadow: 0 0 40px rgba(255,200,0,.25), 0 20px 60px rgba(0,0,0,.85); z-index: 30; flex-direction: row; gap: 24px; align-items: center; min-width: 460px; animation: popup-in .3s ease; }
-#reward-popup.visible { display: flex !important; }
-#reward-qr { background: #fff; padding: 8px; border-radius: 8px; }
-#reward-qr canvas, #reward-qr img { display: block; }
 
 .total-box { margin-top: auto; background: linear-gradient(135deg,#0a1f10,#0a1a2e);
              padding: 16px; border-radius: 10px; text-align: center;
