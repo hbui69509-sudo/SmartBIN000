@@ -14,10 +14,11 @@ const ROI_RATIO            = 0.50;   // ROI = 50% cạnh ngắn canvas
 const MAX_HISTORY          = 5;
 
 // Motion detection settings
-const MOTION_THRESHOLD     = 8;      // pixel diff để tính là "thay đổi" (0-255)
-const MOTION_TRIGGER_PCT   = 6;      // % pixels thay đổi → kích hoạt scan tự động
-const MOTION_COOLDOWN_MS   = 3000;   // ms chờ sau mỗi lần scan auto
-const MOTION_CONFIRM_MS    = 600;    // ms vật thể phải đứng yên trước khi scan
+const MOTION_THRESHOLD     = 10;     // pixel diff để tính là "thay đổi" (0-255)
+const MOTION_TRIGGER_PCT   = 3;      // % pixels thay đổi → kích hoạt (hạ xuống 3% cho dễ trigger)
+const MOTION_STILL_PCT     = 1.5;    // % dưới mức này = vật thể đã đứng yên → scan
+const MOTION_COOLDOWN_MS   = 4000;   // ms chờ sau mỗi lần scan auto
+const MOTION_CONFIRM_MS    = 800;    // ms theo dõi sau khi phát hiện chuyển động
 
 // ---------- State ----------
 let model, webcam, maxPredictions;
@@ -29,6 +30,7 @@ let prevFrameData = null;
 let motionTimer   = null;
 let lastAutoScan  = 0;
 let motionPct     = 0;
+let motionDetected = false;   // true = đã thấy vật thể vào khung, đang chờ đứng yên
 
 let qrInstance    = null;
 let popupTimer    = null;
@@ -251,17 +253,18 @@ function updateMotionUI(pct) {
 // ============================================================
 function toggleAutoMode(on) {
     autoMode = on;
+    motionDetected = false;
+    if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
+    prevFrameData = null;   // reset frame buffer khi đổi mode
     const mb = document.getElementById("motion-bar");
     const sb = document.getElementById("scan-btn");
     if (on) {
         mb.style.display = "flex";
         sb.style.display = "none";
-        setStatus("CHẾ ĐỘ TỰ ĐỘNG", "ready");
-        prevFrameData = null;
+        setStatus("CHẾ ĐỘ TỰ ĐỘNG — Đặt rác vào khung", "ready");
     } else {
         mb.style.display = "none";
         sb.style.display = "inline-block";
-        clearTimeout(motionTimer); motionTimer = null;
         setROIState("idle");
         setStatus("SẴN SÀNG", "ready");
     }
@@ -384,24 +387,36 @@ async function mainLoop() {
         updateMotionUI(motionPct);
 
         const now = Date.now();
-        if (motionPct >= MOTION_TRIGGER_PCT && now - lastAutoScan > MOTION_COOLDOWN_MS) {
-            setROIState("motion");
-            setStatus("PHÁT HIỆN VẬT THỂ", "motion");
+        const cooldownOk = now - lastAutoScan > MOTION_COOLDOWN_MS;
 
+        if (!cooldownOk) return window.requestAnimationFrame(mainLoop);  // trong cooldown, bỏ qua
+
+        if (motionPct >= MOTION_TRIGGER_PCT) {
+            // Có chuyển động → đánh dấu đã thấy vật thể
+            motionDetected = true;
+            setROIState("motion");
+            setStatus("PHÁT HIỆN VẬT THỂ — Đặt vật vào khung...", "motion");
+            // Hủy timer cũ nếu vật thể vẫn đang di chuyển
+            if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
+
+        } else if (motionDetected && motionPct < MOTION_STILL_PCT) {
+            // Vật thể vừa dừng lại sau khi di chuyển → scan sau CONFIRM ms
             if (!motionTimer) {
+                setStatus("VẬT THỂ ĐÃ ĐẶT — Đang chuẩn bị scan...", "motion");
                 motionTimer = setTimeout(() => {
                     motionTimer = null;
-                    if (autoMode && motionPct >= MOTION_TRIGGER_PCT && !isScanning) {
+                    motionDetected = false;
+                    if (autoMode && !isScanning) {
                         scanTrash();
-                    } else {
-                        setROIState("idle");
-                        setStatus("CHẾ ĐỘ TỰ ĐỘNG", "ready");
                     }
                 }, MOTION_CONFIRM_MS);
             }
-        } else if (motionPct < MOTION_TRIGGER_PCT) {
+
+        } else if (!motionDetected) {
+            // Không có gì, chờ bình thường
             if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
-            if (!isScanning) { setROIState("idle"); setStatus("CHẾ ĐỘ TỰ ĐỘNG", "ready"); }
+            setROIState("idle");
+            setStatus("CHẾ ĐỘ TỰ ĐỘNG — Đặt rác vào khung", "ready");
         }
     }
 
@@ -417,8 +432,12 @@ async function scanTrash() {
     if (autoMode) lastAutoScan = Date.now();
 
     const scanBtn = document.getElementById("scan-btn");
-    scanBtn.classList.add("scanning"); scanBtn.innerText = "⏳ ĐANG PHÂN TÍCH...";
-    setStatus("ĐANG PHÂN TÍCH", "active");
+    // Chỉ cập nhật nút khi đang ở chế độ thủ công (nút đang hiện)
+    if (!autoMode) {
+        scanBtn.classList.add("scanning");
+        scanBtn.innerText = "⏳ ĐANG PHÂN TÍCH...";
+    }
+    setStatus("ĐANG PHÂN TÍCH...", "active");
     setROIState("scanning");
 
     try {
@@ -464,7 +483,7 @@ async function scanTrash() {
                 setStatus("ĐÃ NHẬN DIỆN", "done");
 
                 clearTimeout(popupTimer);
-                //popupTimer = setTimeout(closePopup, 5000);
+                popupTimer = setTimeout(closePopup, 5000);
                 return;
             }
         }
@@ -492,6 +511,8 @@ function resetScanUI() {
     btn.classList.remove("scanning");
     btn.innerText = "🎯 NHẬN DIỆN RÁC";
     setROIState("idle");
-    setStatus(autoMode ? "CHẾ ĐỘ TỰ ĐỘNG" : "SẴN SÀNG", "ready");
+    motionDetected = false;
+    if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
+    setStatus(autoMode ? "CHẾ ĐỘ TỰ ĐỘNG — Đặt rác vào khung" : "SẴN SÀNG", "ready");
     isScanning = false;
 }
