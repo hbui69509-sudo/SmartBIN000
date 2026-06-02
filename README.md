@@ -38,7 +38,7 @@ Vì dự án chạy thuần 100% trên trình duyệt (Client-side), bạn khôn
 
 1.  Clone kho lưu trữ này về máy:
 ```bash
-    git clone [đường_link_github_của_bạn]
+    git clone [https://hbui69509-sudo.github.io/SmartBIN000/
     ```
 2.  Sử dụng **Live Server** (Extention của VS Code) để mở file `index.html`.
     *(Lưu ý: Camera yêu cầu trình duyệt phải chạy trên nền tảng `localhost` hoặc `https://`).*
