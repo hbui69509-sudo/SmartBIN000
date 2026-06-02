@@ -483,7 +483,7 @@ async function scanTrash() {
                 setStatus("ĐÃ NHẬN DIỆN", "done");
 
                 clearTimeout(popupTimer);
-                popupTimer = setTimeout(closePopup, 5000);
+                //popupTimer = setTimeout(closePopup, 5000);
                 return;
             }
         }
