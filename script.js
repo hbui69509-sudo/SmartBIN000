@@ -35,19 +35,19 @@ let popupTimer    = null;
 
 // ---------- Danh mục rác ----------
 const TRASH_DICT = {
-    "nhựa":        { name:"RÁC NHỰA",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🧴", wiki:"Nhựa",
+    "nhựa":        { name:"Nhựa ",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🧴", wiki:"Nhựa",
                      speak:"Nhựa. Vui lòng bỏ vào thùng màu vàng." },
-    "giấy":        { name:"RÁC GIẤY",   action:"Bỏ Thùng Xanh Dương",    color:"#ff8c00", icon:"📄", wiki:"Giấy",
+    "giấy":        { name:"Giấy",   action:"Bỏ Thùng Xanh Dương",    color:"#ff8c00", icon:"📄", wiki:"Giấy",
                      speak:"Giấy. Vui lòng bỏ vào thùng màu xanh dương." },
-    "kim loại":    { name:"KIM LOẠI",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🔩", wiki:"Kim_loại",
+    "kim loại":    { name:"Kim Loại",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🔩", wiki:"Kim_loại",
                      speak:"Kim loại. Vui lòng bỏ vào thùng màu vàng." },
-    "thủy tinh":   { name:"THỦY TINH",  action:"Cẩn thận, Bỏ Thùng Vàng",color:"#a0c8ff", icon:"🍾", wiki:"Thủy_tinh",
+    "thủy tinh":   { name:"Thuỷ Tinh ",  action:"Cẩn thận, Bỏ Thùng Vàng",color:"#a0c8ff", icon:"🍾", wiki:"Thủy_tinh",
                      speak:"Thủy tinh. Cẩn thận rơi vỡ, bỏ vào thùng vàng." },
-    "rác điện tử": { name:"ĐIỆN TỬ",    action:"Thu Gom Riêng",           color:"#ff3d5a", icon:"📱", wiki:"Rác_thải_điện_tử",
+    "rác điện tử": { name:"Rác Điện Tử",    action:"Thu Gom Riêng",           color:"#ff3d5a", icon:"📱", wiki:"Rác_thải_điện_tử",
                      speak:"Cảnh báo. Rác điện tử nguy hại, cần thu gom riêng." },
-    "rác hữu cơ":  { name:"HỮU CƠ",    action:"Bỏ Thùng Xanh Lá",       color:"#00e87a", icon:"🍃", wiki:"Chất_thải_hữu_cơ",
+    "rác hữu cơ":  { name:"Rác Hữu Cơ ",    action:"Bỏ Thùng Xanh Lá",       color:"#00e87a", icon:"🍃", wiki:"Chất_thải_hữu_cơ",
                      speak:"Rác hữu cơ. Vui lòng bỏ vào thùng xanh lá." },
-    "rác vô cơ":   { name:"VÔ CƠ",     action:"Bỏ Thùng Đỏ",            color:"#4d8cff", icon:"🗑️", wiki:"Rác_thải",
+    "rác vô cơ":   { name:"Rác Vô Cơ",     action:"Bỏ Thùng Đỏ",            color:"#4d8cff", icon:"🗑️", wiki:"Rác_thải",
                      speak:"Rác vô cơ sinh hoạt. Vui lòng bỏ thùng đỏ." }
 };
 
