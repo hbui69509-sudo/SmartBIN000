@@ -37,21 +37,64 @@ let popupTimer    = null;
 
 // ---------- Danh mục rác ----------
 const TRASH_DICT = {
-    "nhựa":        { name:"Nhựa",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🧴", wiki:"Nhựa",
-                     speak:"Nhựa. Vui lòng bỏ vào thùng màu vàng." },
-    "giấy":        { name:"Giấy",   action:"Bỏ Thùng Xanh Dương",    color:"#ff8c00", icon:"📄", wiki:"Giấy",
-                     speak:"Giấy. Vui lòng bỏ vào thùng màu xanh dương." },
-    "kim loại":    { name:"Kim Loại",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🔩", wiki:"Kim_loại",
-                     speak:"Kim loại. Vui lòng bỏ vào thùng màu vàng." },
-    "thủy tinh":   { name:"Thủy Tinh",  action:"Cẩn thận, Bỏ Thùng Vàng",color:"#a0c8ff", icon:"🍾", wiki:"Thủy_tinh",
-                     speak:"Thủy tinh. Cẩn thận rơi vỡ, bỏ vào thùng vàng." },
-    "rác điện tử": { name:"Rác Điện Tử",    action:"Thu Gom Riêng",           color:"#ff3d5a", icon:"📱", wiki:"Rác_thải_điện_tử",
-                     speak:"Cảnh báo. Rác điện tử nguy hại, cần thu gom riêng." },
-    "rác hữu cơ":  { name:"Rác Hữu Cơ",    action:"Bỏ Thùng Xanh Lá",       color:"#00e87a", icon:"🍃", wiki:"Chất_thải_hữu_cơ",
-                     speak:"Rác hữu cơ. Vui lòng bỏ vào thùng xanh lá." },
-    "rác vô cơ":   { name:"Rác Vô Cơ",     action:"Bỏ Thùng Đỏ",            color:"#4d8cff", icon:"🗑️", wiki:"Rác_thải",
-                     speak:"Rác vô cơ sinh hoạt. Vui lòng bỏ thùng đỏ." }
+    "nhựa":        { name:"RÁC NHỰA",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🧴", wiki:"Nhựa",
+                     speak:"Nhựa. Vui lòng bỏ vào thùng màu vàng.",
+                     points: 10,
+                     steps: ["Rửa sạch chai lọ, hộp nhựa trước khi bỏ", "Loại bỏ nắp kim loại nếu có", "Bỏ vào thùng tái chế màu vàng", "Nhựa PET, HDPE có thể tái chế thành quần áo, đồ dùng mới"],
+                     tip: "♻️ 1 chai nhựa tái chế = tiết kiệm đủ điện để chạy bóng đèn 6 tiếng!",
+                     risk: "Thấp" },
+    "giấy":        { name:"RÁC GIẤY",   action:"Bỏ Thùng Xanh Dương",    color:"#ff8c00", icon:"📄", wiki:"Giấy",
+                     speak:"Giấy. Vui lòng bỏ vào thùng màu xanh dương.",
+                     points: 8,
+                     steps: ["Giữ giấy khô ráo, không dính ướt", "Xếp gọn, tháo ghim, kẹp kim loại", "Bỏ vào thùng xanh dương hoặc giao cho vựa ve chai", "Carton, báo, giấy văn phòng đều tái chế được"],
+                     tip: "🌳 Tái chế 1 tấn giấy = cứu 17 cây xanh và 26.000 lít nước!",
+                     risk: "Thấp" },
+    "kim loại":    { name:"KIM LOẠI",   action:"Bỏ Thùng Vàng",          color:"#c0c8e0", icon:"🔩", wiki:"Kim_loại",
+                     speak:"Kim loại. Vui lòng bỏ vào thùng màu vàng.",
+                     points: 15,
+                     steps: ["Rửa sạch lon, hộp thiếc trước khi bỏ", "Có thể bóp dẹp để tiết kiệm chỗ", "Bỏ vào thùng tái chế màu vàng", "Kim loại có thể tái chế vô hạn lần mà không mất chất lượng"],
+                     tip: "⚡ Tái chế 1 lon nhôm tiết kiệm điện bằng xem TV 3 tiếng!",
+                     risk: "Thấp" },
+    "thủy tinh":   { name:"THỦY TINH",  action:"Cẩn thận, Bỏ Thùng Vàng",color:"#a0c8ff", icon:"🍾", wiki:"Thủy_tinh",
+                     speak:"Thủy tinh. Cẩn thận rơi vỡ, bỏ vào thùng vàng.",
+                     points: 12,
+                     steps: ["⚠️ Cẩn thận mảnh vỡ sắc nhọn", "Rửa sạch bên trong chai lọ", "Đặt nhẹ nhàng vào thùng, không ném mạnh", "Thủy tinh có thể tái chế 100%, giữ nguyên chất lượng mãi mãi"],
+                     tip: "🔄 Thủy tinh là vật liệu tái chế hoàn hảo nhất — không bao giờ giảm chất lượng!",
+                     risk: "Trung bình" },
+    "rác điện tử": { name:"ĐIỆN TỬ",    action:"Thu Gom Riêng",           color:"#ff3d5a", icon:"📱", wiki:"Rác_thải_điện_tử",
+                     speak:"Cảnh báo. Rác điện tử nguy hại, cần thu gom riêng.",
+                     points: 20,
+                     steps: ["⛔ KHÔNG bỏ vào thùng thường — rất nguy hiểm!", "Xóa dữ liệu cá nhân trước khi bỏ", "Mang đến điểm thu gom rác điện tử chuyên dụng", "Liên hệ nhà sản xuất hoặc chuỗi điện máy để thu hồi miễn phí"],
+                     tip: "☠️ Pin và vi mạch chứa chì, thủy ngân — gây ung thư nếu thấm vào đất nước!",
+                     risk: "Rất cao" },
+    "rác hữu cơ":  { name:"HỮU CƠ",    action:"Bỏ Thùng Xanh Lá",       color:"#00e87a", icon:"🍃", wiki:"Chất_thải_hữu_cơ",
+                     speak:"Rác hữu cơ. Vui lòng bỏ vào thùng xanh lá.",
+                     points: 5,
+                     steps: ["Bỏ vào thùng màu xanh lá chuyên rác hữu cơ", "Có thể ủ phân compost tại nhà", "Vỏ trái cây, thức ăn thừa đều phân hủy tự nhiên", "Tuyệt đối không trộn với rác nhựa hoặc rác nguy hại"],
+                     tip: "🌱 Rác hữu cơ ủ thành phân compost = phân bón tự nhiên siêu tốt cho cây!",
+                     risk: "Thấp" },
+    "rác vô cơ":   { name:"VÔ CƠ",     action:"Bỏ Thùng Đỏ",            color:"#4d8cff", icon:"🗑️", wiki:"Rác_thải",
+                     speak:"Rác vô cơ sinh hoạt. Vui lòng bỏ thùng đỏ.",
+                     points: 3,
+                     steps: ["Bỏ vào thùng rác màu đỏ hoặc đen (rác thải thông thường)", "Buộc chặt túi rác trước khi bỏ", "Sẽ được thu gom và xử lý tại bãi chôn lấp", "Cố gắng giảm thiểu loại rác này trong sinh hoạt hàng ngày"],
+                     tip: "💡 Tip: Thay thế đồ nhựa dùng một lần bằng sản phẩm tái sử dụng để giảm rác vô cơ!",
+                     risk: "Thấp" }
 };
+
+// ---------- Hệ thống tích điểm ----------
+const POINT_RANKS = [
+    { min: 0,    label: "🌱 Tân Binh Xanh",     color: "#6b6b80" },
+    { min: 50,   label: "🌿 Người Bảo Vệ",       color: "#00e87a" },
+    { min: 150,  label: "♻️ Chiến Binh Tái Chế", color: "#00d4ff" },
+    { min: 300,  label: "⭐ Anh Hùng Môi Trường", color: "#ffc800" },
+    { min: 500,  label: "🏆 Huyền Thoại Xanh",   color: "#ff8c00" },
+    { min: 1000, label: "🌍 Vệ Sĩ Trái Đất",     color: "#ff3d5a" },
+];
+
+let totalPoints = 0;
+let currentStreak = 0;
+let lastScanTime = 0;
+const STREAK_TIMEOUT_MS = 30000; // 30 giây để duy trì chuỗi
 
 const CLASS_ALIASES = {
     "plastic":"nhựa","paper":"giấy","metal":"kim loại","glass":"thủy tinh",
@@ -64,6 +107,87 @@ let stats = {};
 Object.keys(TRASH_DICT).forEach(k => stats[k] = 0);
 let totalTrash = 0;
 let scanHistory = [];
+
+// ============================================================
+//  POINTS SYSTEM
+// ============================================================
+function getCurrentRank() {
+    let rank = POINT_RANKS[0];
+    for (const r of POINT_RANKS) {
+        if (totalPoints >= r.min) rank = r;
+    }
+    return rank;
+}
+
+function getNextRank() {
+    for (let i = 0; i < POINT_RANKS.length; i++) {
+        if (totalPoints < POINT_RANKS[i].min) return POINT_RANKS[i];
+    }
+    return null;
+}
+
+function addPoints(key, conf) {
+    const info = TRASH_DICT[key];
+    const base = info.points;
+    // Bonus điểm: streak và confidence cao
+    const confBonus = conf >= 90 ? 5 : conf >= 75 ? 2 : 0;
+    const streakBonus = currentStreak > 1 ? Math.min(currentStreak - 1, 5) : 0;
+    const earned = base + confBonus + streakBonus;
+    totalPoints += earned;
+    return { earned, base, confBonus, streakBonus };
+}
+
+function updateStreak() {
+    const now = Date.now();
+    if (now - lastScanTime < STREAK_TIMEOUT_MS) {
+        currentStreak++;
+    } else {
+        currentStreak = 1;
+    }
+    lastScanTime = now;
+}
+
+function renderPointsPanel() {
+    const panel = document.getElementById("points-panel");
+    if (!panel) return;
+    const rank = getCurrentRank();
+    const next = getNextRank();
+    const progress = next
+        ? ((totalPoints - rank.min) / (next.min - rank.min)) * 100
+        : 100;
+    panel.innerHTML = `
+        <div class="points-header">
+            <div class="points-total">
+                <span class="pts-number">${totalPoints}</span>
+                <span class="pts-label">ĐIỂM</span>
+            </div>
+            <div class="rank-badge" style="color:${rank.color};border-color:${rank.color}22;background:${rank.color}11">
+                ${rank.label}
+            </div>
+        </div>
+        <div class="points-progress-wrap">
+            <div class="pts-progress-track">
+                <div class="pts-progress-fill" style="width:${Math.min(progress,100)}%;background:${rank.color};box-shadow:0 0 10px ${rank.color}66"></div>
+            </div>
+            <span class="pts-next">${next ? `${totalPoints}/${next.min} → ${next.label}` : '🏆 Đã đạt cấp cao nhất!'}</span>
+        </div>
+        ${currentStreak > 1 ? `<div class="streak-badge">🔥 Chuỗi x${currentStreak} — +${Math.min(currentStreak-1,5)} bonus!</div>` : ''}
+    `;
+}
+
+function showPointsToast(pts, streakBonus, confBonus) {
+    const toast = document.getElementById("points-toast");
+    if (!toast) return;
+    let msg = `+${pts} điểm`;
+    const extras = [];
+    if (confBonus > 0) extras.push(`🎯 Độ chính xác cao +${confBonus}`);
+    if (streakBonus > 0) extras.push(`🔥 Streak +${streakBonus}`);
+    toast.innerHTML = `<span class="toast-pts">${msg}</span>${extras.length ? `<span class="toast-bonus">${extras.join(' · ')}</span>` : ''}`;
+    toast.classList.add("visible");
+    setTimeout(() => toast.classList.remove("visible"), 2500);
+}
+
+
 
 // ============================================================
 //  UI HELPERS
@@ -79,7 +203,10 @@ function renderStats() {
     list.innerHTML = Object.entries(TRASH_DICT).map(([key, info]) => `
         <div class="stat-card" style="border-left-color:${info.color}">
             <span class="stat-name">${info.icon} ${info.name}</span>
-            <span class="stat-value" id="cnt-${eid(key)}" style="color:${info.color}">${stats[key]}</span>
+            <div class="stat-right">
+                <span class="stat-pts" style="color:${info.color}88">+${info.points}pts</span>
+                <span class="stat-value" id="cnt-${eid(key)}" style="color:${info.color}">${stats[key]}</span>
+            </div>
         </div>`).join("");
 }
 renderStats();
@@ -93,10 +220,10 @@ function bumpCount(key) {
     el.innerText = stats[key];
 }
 
-function addHistory(name, icon, color) {
+function addHistory(name, icon, color, pts) {
     const t = new Date();
     const ts = [t.getHours(),t.getMinutes(),t.getSeconds()].map(n=>String(n).padStart(2,"0")).join(":");
-    scanHistory.unshift({ name, icon, color, ts });
+    scanHistory.unshift({ name, icon, color, ts, pts });
     if (scanHistory.length > MAX_HISTORY) scanHistory.pop();
     const ul = document.getElementById("history-list");
     ul.innerHTML = scanHistory.length === 0
@@ -104,15 +231,17 @@ function addHistory(name, icon, color) {
         : scanHistory.map(h => `
             <li class="history-item">
                 <span>${h.icon} <span style="color:${h.color};font-weight:700">${h.name}</span></span>
-                <span class="h-time">${h.ts}</span>
+                <span class="h-right"><span class="h-pts">+${h.pts||0}pts</span><span class="h-time">${h.ts}</span></span>
             </li>`).join("");
 }
 
 function resetStats() {
-    if (!confirm("Reset toàn bộ thống kê?")) return;
+    if (!confirm("Reset toàn bộ thống kê và điểm số?")) return;
     Object.keys(stats).forEach(k => stats[k] = 0);
     totalTrash = 0; scanHistory = [];
+    totalPoints = 0; currentStreak = 0; lastScanTime = 0;
     renderStats();
+    renderPointsPanel();
     document.getElementById("total-count").innerText = "0";
     document.getElementById("history-list").innerHTML = '<li class="history-empty">Chưa có dữ liệu</li>';
 }
@@ -460,12 +589,33 @@ async function scanTrash() {
                 const info = TRASH_DICT[key];
                 const conf = Math.round(best.probability * 100);
 
+                // Points
+                updateStreak();
+                const { earned, base, confBonus, streakBonus } = addPoints(key, conf);
+                renderPointsPanel();
+
                 // Show popup
                 document.getElementById("popup-icon").innerText = info.icon;
-                document.getElementById("res-name").innerText   = info.name + ` (${conf}%)`;
+                document.getElementById("res-name").innerText   = info.name;
                 document.getElementById("res-name").style.color = info.color;
                 document.getElementById("res-action").innerText = "👉 " + info.action;
                 document.getElementById("conf-badge").innerText = conf + "% tin cậy";
+
+                // Handling steps in popup
+                const stepsEl = document.getElementById("res-steps");
+                if (stepsEl) {
+                    stepsEl.innerHTML = `
+                        <div class="steps-title">📋 Cách xử lý</div>
+                        <ol class="steps-list">
+                            ${info.steps.map(s => `<li>${s}</li>`).join("")}
+                        </ol>
+                        <div class="steps-tip">${info.tip}</div>
+                        <div class="steps-risk risk-${info.risk.replace(/ /g,'-').toLowerCase()}">
+                            ⚠️ Mức độ nguy hại: <strong>${info.risk}</strong>
+                        </div>
+                    `;
+                }
+
                 const popup = document.getElementById("result-popup");
                 popup.style.borderColor  = info.color;
                 popup.style.boxShadow    = `0 0 40px ${info.color}44, 0 20px 60px rgba(0,0,0,.85)`;
@@ -478,12 +628,15 @@ async function scanTrash() {
                 stats[key]++; totalTrash++;
                 bumpCount(key);
                 document.getElementById("total-count").innerText = totalTrash;
-                addHistory(info.name, info.icon, info.color);
+                addHistory(info.name, info.icon, info.color, earned);
                 speak(info.speak);
                 setStatus("ĐÃ NHẬN DIỆN", "done");
 
+                // Points toast
+                showPointsToast(earned, streakBonus, confBonus);
+
                 clearTimeout(popupTimer);
-                //popupTimer = setTimeout(closePopup, 5000);
+                popupTimer = setTimeout(closePopup, 7000);
                 return;
             }
         }
