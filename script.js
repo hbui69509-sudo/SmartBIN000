@@ -8,7 +8,7 @@
 //    ✅ Match class linh hoạt (có dấu / không dấu / tiếng Anh)
 // ============================================================
 
-const MODEL_URL            = "https://teachablemachine.withgoogle.com/models/J6zhgar8S/";
+const MODEL_URL            = "https://teachablemachine.withgoogle.com/models/JjOjDvCvT/";
 const CONFIDENCE_THRESHOLD = 0.50;   // Chỉnh tuỳ model (0.0 – 1.0)
 const ROI_RATIO            = 0.50;   // ROI = 50% cạnh ngắn canvas
 const MAX_HISTORY          = 5;
