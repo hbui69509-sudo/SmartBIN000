@@ -1,24 +1,18 @@
 // ============================================================
-//  SMARTBIN KIOSK — script.js v3
-//  Tính năng:
-//    ✅ Motion detection → tự động scan khi phát hiện vật thể
-//    ✅ Scan liên tục (confidence bars realtime)
-//    ✅ QR code Wikipedia sau mỗi lần nhận diện
-//    ✅ ROI crop đúng tọa độ (canvas mirror fix)
-//    ✅ Match class linh hoạt (có dấu / không dấu / tiếng Anh)
+//  SMARTBIN KIOSK — script.js v3.1 (Gamification Edition)
 // ============================================================
 
 const MODEL_URL            = "https://teachablemachine.withgoogle.com/models/J6zhgar8S/";
-const CONFIDENCE_THRESHOLD = 0.50;   // Chỉnh tuỳ model (0.0 – 1.0)
-const ROI_RATIO            = 0.50;   // ROI = 50% cạnh ngắn canvas
+const CONFIDENCE_THRESHOLD = 0.50;   
+const ROI_RATIO            = 0.50;   
 const MAX_HISTORY          = 5;
 
 // Motion detection settings
-const MOTION_THRESHOLD     = 10;     // pixel diff để tính là "thay đổi" (0-255)
-const MOTION_TRIGGER_PCT   = 3;      // % pixels thay đổi → kích hoạt (hạ xuống 3% cho dễ trigger)
-const MOTION_STILL_PCT     = 1.5;    // % dưới mức này = vật thể đã đứng yên → scan
-const MOTION_COOLDOWN_MS   = 4000;   // ms chờ sau mỗi lần scan auto
-const MOTION_CONFIRM_MS    = 800;    // ms theo dõi sau khi phát hiện chuyển động
+const MOTION_THRESHOLD     = 10;     
+const MOTION_TRIGGER_PCT   = 3;      
+const MOTION_STILL_PCT     = 1.5;    
+const MOTION_COOLDOWN_MS   = 4000;   
+const MOTION_CONFIRM_MS    = 800;    
 
 // ---------- State ----------
 let model, webcam, maxPredictions;
@@ -30,27 +24,24 @@ let prevFrameData = null;
 let motionTimer   = null;
 let lastAutoScan  = 0;
 let motionPct     = 0;
-let motionDetected = false;   // true = đã thấy vật thể vào khung, đang chờ đứng yên
+let motionDetected = false;   
 
 let qrInstance    = null;
 let popupTimer    = null;
 
-// ---------- Danh mục rác ----------
+// ---------- Points State ----------
+let userPoints = 0;
+const REWARD_THRESHOLD = 50; 
+
+// ---------- Danh mục rác & Điểm thưởng ----------
 const TRASH_DICT = {
-    "nhựa":        { name:"RÁC NHỰA",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🧴", wiki:"Nhựa",
-                     speak:"Nhựa. Vui lòng bỏ vào thùng màu vàng." },
-    "giấy":        { name:"RÁC GIẤY",   action:"Bỏ Thùng Xanh Dương",    color:"#ff8c00", icon:"📄", wiki:"Giấy",
-                     speak:"Giấy. Vui lòng bỏ vào thùng màu xanh dương." },
-    "kim loại":    { name:"KIM LOẠI",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🔩", wiki:"Kim_loại",
-                     speak:"Kim loại. Vui lòng bỏ vào thùng màu vàng." },
-    "thủy tinh":   { name:"THỦY TINH",  action:"Cẩn thận, Bỏ Thùng Vàng",color:"#a0c8ff", icon:"🍾", wiki:"Thủy_tinh",
-                     speak:"Thủy tinh. Cẩn thận rơi vỡ, bỏ vào thùng vàng." },
-    "rác điện tử": { name:"ĐIỆN TỬ",    action:"Thu Gom Riêng",           color:"#ff3d5a", icon:"📱", wiki:"Rác_thải_điện_tử",
-                     speak:"Cảnh báo. Rác điện tử nguy hại, cần thu gom riêng." },
-    "rác hữu cơ":  { name:"HỮU CƠ",    action:"Bỏ Thùng Xanh Lá",       color:"#00e87a", icon:"🍃", wiki:"Chất_thải_hữu_cơ",
-                     speak:"Rác hữu cơ. Vui lòng bỏ vào thùng xanh lá." },
-    "rác vô cơ":   { name:"VÔ CƠ",     action:"Bỏ Thùng Đỏ",            color:"#4d8cff", icon:"🗑️", wiki:"Rác_thải",
-                     speak:"Rác vô cơ sinh hoạt. Vui lòng bỏ thùng đỏ." }
+    "nhựa":        { name:"Nhựa",   points: 10, action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🧴", wiki:"Nhựa", speak:"Nhựa. Vui lòng bỏ vào thùng màu vàng." },
+    "giấy":        { name:"Giấy",   points: 10, action:"Bỏ Thùng Xanh Dương",    color:"#ff8c00", icon:"📄", wiki:"Giấy", speak:"Giấy. Vui lòng bỏ vào thùng màu xanh dương." },
+    "kim loại":    { name:"Kim Loại ",   points: 10, action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🔩", wiki:"Kim_loại", speak:"Kim loại. Vui lòng bỏ vào thùng màu vàng." },
+    "thủy tinh":   { name:"Thủy Tinh",  points: 10, action:"Cẩn thận, Bỏ Thùng Vàng",color:"#a0c8ff", icon:"🍾", wiki:"Thủy_tinh", speak:"Thủy tinh. Cẩn thận rơi vỡ, bỏ vào thùng vàng." },
+    "rác điện tử": { name:"Rác Điện Tử",    points: 0,  action:"Thu Gom Riêng",           color:"#ff3d5a", icon:"📱", wiki:"Rác_thải_điện_tử", speak:"Cảnh báo. Rác điện tử nguy hại, không cộng điểm." },
+    "rác hữu cơ":  { name:"Rác Hữu Cơ",    points: 5,  action:"Bỏ Thùng Xanh Lá",       color:"#00e87a", icon:"🍃", wiki:"Chất_thải_hữu_cơ", speak:"Rác hữu cơ. Vui lòng bỏ vào thùng xanh lá." },
+    "rác vô cơ":   { name:"Rác Vô Cơ",     points: 0,  action:"Bỏ Thùng Đỏ",            color:"#4d8cff", icon:"🗑️", wiki:"Rác_thải", speak:"Rác vô cơ sinh hoạt. Không cộng điểm." }
 };
 
 const CLASS_ALIASES = {
@@ -109,12 +100,16 @@ function addHistory(name, icon, color) {
 }
 
 function resetStats() {
-    if (!confirm("Reset toàn bộ thống kê?")) return;
+    if (!confirm("Reset toàn bộ thống kê và điểm thưởng?")) return;
     Object.keys(stats).forEach(k => stats[k] = 0);
-    totalTrash = 0; scanHistory = [];
+    totalTrash = 0; 
+    scanHistory = [];
+    userPoints = 0;
     renderStats();
     document.getElementById("total-count").innerText = "0";
     document.getElementById("history-list").innerHTML = '<li class="history-empty">Chưa có dữ liệu</li>';
+    document.getElementById("user-points").innerText = userPoints;
+    document.getElementById("pt-bar-fill").style.width = "0%";
 }
 
 // ============================================================
@@ -151,17 +146,14 @@ function drawROIOverlay(canvas) {
 
     const svg = document.createElementNS(ns, "svg");
     svg.id = "roi-overlay";
-    // Canvas bị CSS scaleX(-1) nên SVG overlay phải mirror theo để khung ROI khớp đúng vị trí
     Object.assign(svg.style, {
         position: "absolute", top: "0", left: "0",
-        width: "100%", height: "100%",  // co giãn theo kích thước CSS của canvas
+        width: "100%", height: "100%", 
         pointerEvents: "none", zIndex: "3",
-        transform: "scaleX(-1)"         // mirror cùng chiều với canvas
+        transform: "scaleX(-1)"         
     });
-    // viewBox theo pixel canvas gốc → SVG tự scale đúng tỷ lệ
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
 
-    // dark mask outside ROI
     const mask = document.createElementNS(ns, "mask"); mask.id = "roi-mask";
     const bg = document.createElementNS(ns, "rect");
     bg.setAttribute("width", W); bg.setAttribute("height", H); bg.setAttribute("fill", "white");
@@ -176,7 +168,6 @@ function drawROIOverlay(canvas) {
     shadow.setAttribute("fill","rgba(0,0,0,0.55)"); shadow.setAttribute("mask","url(#roi-mask)");
     svg.appendChild(shadow);
 
-    // dashed border
     const border = document.createElementNS(ns, "rect");
     border.id = "roi-border";
     border.setAttribute("x",x); border.setAttribute("y",y);
@@ -186,7 +177,6 @@ function drawROIOverlay(canvas) {
     border.setAttribute("rx","4");
     svg.appendChild(border);
 
-    // corner accents
     [[x,y,1,1],[x+size,y,-1,1],[x+size,y+size,-1,-1],[x,y+size,1,-1]].forEach(([cx,cy,dx,dy]) => {
         const p = document.createElementNS(ns,"path");
         p.setAttribute("d",`M${cx+dx*18} ${cy} L${cx} ${cy} L${cx} ${cy+dy*18}`);
@@ -199,7 +189,6 @@ function drawROIOverlay(canvas) {
 }
 
 function setROIState(state) {
-    // state: "idle" | "motion" | "scanning"
     const b = document.getElementById("roi-border"); if (!b) return;
     if (state === "scanning") {
         b.setAttribute("stroke","#ffc800"); b.setAttribute("stroke-dasharray","");
@@ -255,7 +244,7 @@ function toggleAutoMode(on) {
     autoMode = on;
     motionDetected = false;
     if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
-    prevFrameData = null;   // reset frame buffer khi đổi mode
+    prevFrameData = null;   
     const mb = document.getElementById("motion-bar");
     const sb = document.getElementById("scan-btn");
     if (on) {
@@ -283,7 +272,6 @@ function showQR(wikiSlug) {
     if (typeof QRCode !== "undefined") {
         new QRCode(el, { text: url, width: 110, height: 110, colorDark:"#000", colorLight:"#fff", correctLevel: QRCode.CorrectLevel.M });
     } else {
-        // fallback: QR via Google Charts API
         const img = document.createElement("img");
         img.src = `https://chart.googleapis.com/chart?cht=qr&chs=110x110&chl=${encodeURIComponent(url)}`;
         img.width = 110; img.height = 110;
@@ -292,10 +280,9 @@ function showQR(wikiSlug) {
 }
 
 // ============================================================
-//  CONFIDENCE BARS (realtime)
+//  CONFIDENCE BARS
 // ============================================================
 const BAR_COLORS = ["#00d4ff","#00e87a","#ff8c00","#ffc800","#ff3d5a","#4d8cff","#a0c8ff"];
-let lastBarUpdate = 0;
 
 async function updateConfBars() {
     if (!model || !webcam || !isCameraReady) return;
@@ -378,10 +365,8 @@ async function mainLoop() {
     webcam.update();
     loopTick++;
 
-    // Cập nhật confidence bars mỗi ~400ms (mỗi 24 frame @ ~60fps)
     if (loopTick % 24 === 0) updateConfBars();
 
-    // Motion detection mỗi ~100ms (mỗi 6 frame)
     if (autoMode && loopTick % 6 === 0 && isCameraReady && !isScanning) {
         motionPct = detectMotion(webcam.canvas);
         updateMotionUI(motionPct);
@@ -389,18 +374,15 @@ async function mainLoop() {
         const now = Date.now();
         const cooldownOk = now - lastAutoScan > MOTION_COOLDOWN_MS;
 
-        if (!cooldownOk) return window.requestAnimationFrame(mainLoop);  // trong cooldown, bỏ qua
+        if (!cooldownOk) return window.requestAnimationFrame(mainLoop); 
 
         if (motionPct >= MOTION_TRIGGER_PCT) {
-            // Có chuyển động → đánh dấu đã thấy vật thể
             motionDetected = true;
             setROIState("motion");
             setStatus("PHÁT HIỆN VẬT THỂ — Đặt vật vào khung...", "motion");
-            // Hủy timer cũ nếu vật thể vẫn đang di chuyển
             if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
 
         } else if (motionDetected && motionPct < MOTION_STILL_PCT) {
-            // Vật thể vừa dừng lại sau khi di chuyển → scan sau CONFIRM ms
             if (!motionTimer) {
                 setStatus("VẬT THỂ ĐÃ ĐẶT — Đang chuẩn bị scan...", "motion");
                 motionTimer = setTimeout(() => {
@@ -413,7 +395,6 @@ async function mainLoop() {
             }
 
         } else if (!motionDetected) {
-            // Không có gì, chờ bình thường
             if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
             setROIState("idle");
             setStatus("CHẾ ĐỘ TỰ ĐỘNG — Đặt rác vào khung", "ready");
@@ -432,7 +413,6 @@ async function scanTrash() {
     if (autoMode) lastAutoScan = Date.now();
 
     const scanBtn = document.getElementById("scan-btn");
-    // Chỉ cập nhật nút khi đang ở chế độ thủ công (nút đang hiện)
     if (!autoMode) {
         scanBtn.classList.add("scanning");
         scanBtn.innerText = "⏳ ĐANG PHÂN TÍCH...";
@@ -474,21 +454,26 @@ async function scanTrash() {
                 // QR code
                 showQR(info.wiki);
 
-                // Stats
+                // Stats & Points
                 stats[key]++; totalTrash++;
                 bumpCount(key);
                 document.getElementById("total-count").innerText = totalTrash;
+                
+                userPoints += info.points;
+                document.getElementById("user-points").innerText = userPoints;
+                document.getElementById("pt-bar-fill").style.width = Math.min((userPoints / REWARD_THRESHOLD) * 100, 100) + "%";
+
                 addHistory(info.name, info.icon, info.color);
                 speak(info.speak);
                 setStatus("ĐÃ NHẬN DIỆN", "done");
 
+                // ĐÃ TẮT TỰ ĐỘNG ĐÓNG POPUP
                 clearTimeout(popupTimer);
-                //popupTimer = setTimeout(closePopup, 5000);
+                // popupTimer = setTimeout(closePopup, 5000); 
                 return;
             }
         }
 
-        // Không nhận diện được
         speak("Không nhận diện được. Vui lòng thử lại.");
         setStatus(autoMode ? "CHẾ ĐỘ TỰ ĐỘNG" : "KHÔNG RÕ", autoMode ? "ready" : "");
         setTimeout(resetScanUI, 1200);
@@ -500,9 +485,39 @@ async function scanTrash() {
     }
 }
 
+// ============================================================
+//  GAMIFICATION POPUPS
+// ============================================================
 function closePopup() {
     clearTimeout(popupTimer);
     document.getElementById("result-popup").classList.remove("visible");
+    
+    // Đủ điểm thì bắn bảng Lì xì
+    if (userPoints >= REWARD_THRESHOLD) {
+        setTimeout(showReward, 200);
+    } else {
+        resetScanUI();
+    }
+}
+
+function showReward() {
+    const popup = document.getElementById("reward-popup");
+    popup.classList.add("visible");
+    speak("Chúc mừng! Bạn đã tích đủ năm mươi điểm. Hãy dùng ví mô mô để quét mã nhận quà.");
+
+    const qrEl = document.getElementById("reward-qr");
+    qrEl.innerHTML = "";
+    new QRCode(qrEl, { text: "https://momo.vn/lixi/SmartBin", width: 110, height: 110, colorDark:"#000", colorLight:"#fff", correctLevel: QRCode.CorrectLevel.M });
+}
+
+function closeReward() {
+    document.getElementById("reward-popup").classList.remove("visible");
+    
+    // Reset điểm
+    userPoints = 0; 
+    document.getElementById("user-points").innerText = userPoints;
+    document.getElementById("pt-bar-fill").style.width = "0%";
+    
     resetScanUI();
 }
 
