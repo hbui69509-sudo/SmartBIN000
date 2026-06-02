@@ -1,5 +1,5 @@
 // ============================================================
-//  SMARTBIN KIOSK — script.js v3
+//  SMARTBIN KIOSK — script.js 
 //  Tính năng:
 //    ✅ Motion detection → tự động scan khi phát hiện vật thể
 //    ✅ Scan liên tục (confidence bars realtime)
@@ -636,7 +636,7 @@ async function scanTrash() {
                 showPointsToast(earned, streakBonus, confBonus);
 
                 clearTimeout(popupTimer);
-                popupTimer = setTimeout(closePopup, 7000);
+                //popupTimer = setTimeout(closePopup, 7000);
                 return;
             }
         }
