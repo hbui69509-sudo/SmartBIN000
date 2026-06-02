@@ -1,181 +1,490 @@
-// LINK CỦA BẠN ĐÃ ĐƯỢC CHÈN SẴN VÀO ĐÂY
-const URL = "https://teachablemachine.withgoogle.com/models/J6zhgar8S/";
+// ============================================================
+//  SMARTBIN KIOSK — script.js v3
+//  Tính năng:
+//    ✅ Motion detection → tự động scan khi phát hiện vật thể
+//    ✅ Scan liên tục (confidence bars realtime)
+//    ✅ QR code Wikipedia sau mỗi lần nhận diện
+//    ✅ ROI crop đúng tọa độ (canvas mirror fix)
+//    ✅ Match class linh hoạt (có dấu / không dấu / tiếng Anh)
+// ============================================================
 
+const MODEL_URL            = "https://teachablemachine.withgoogle.com/models/J6zhgar8S/";
+const CONFIDENCE_THRESHOLD = 0.50;   // Chỉnh tuỳ model (0.0 – 1.0)
+const ROI_RATIO            = 0.50;   // ROI = 50% cạnh ngắn canvas
+const MAX_HISTORY          = 5;
+
+// Motion detection settings
+const MOTION_THRESHOLD     = 8;      // pixel diff để tính là "thay đổi" (0-255)
+const MOTION_TRIGGER_PCT   = 6;      // % pixels thay đổi → kích hoạt scan tự động
+const MOTION_COOLDOWN_MS   = 3000;   // ms chờ sau mỗi lần scan auto
+const MOTION_CONFIRM_MS    = 600;    // ms vật thể phải đứng yên trước khi scan
+
+// ---------- State ----------
 let model, webcam, maxPredictions;
 let isCameraReady = false;
+let isScanning    = false;
 
-const dict = {
-    "nhựa": { name: "RÁC NHỰA", action: "Bỏ Thùng Vàng", color: "#00dcff", speak: "Nhựa. Vui lòng bỏ vào thùng màu vàng." },
-    "giấy": { name: "RÁC GIẤY", action: "Bỏ Thùng Xanh Dương", color: "#ff9600", speak: "Giấy. Vui lòng bỏ vào thùng màu xanh dương." },
-    "kim loại": { name: "KIM LOẠI", action: "Bỏ Thùng Vàng", color: "#00dcff", speak: "Kim loại. Vui lòng bỏ vào thùng màu vàng." },
-    "thủy tinh": { name: "THỦY TINH", action: "Cẩn thận rơi vỡ", color: "#00dcff", speak: "Thủy tinh. Cẩn thận rơi vỡ, bỏ vào thùng vàng." },
-    "rác điện tử": { name: "ĐIỆN TỬ", action: "Thu Gom Riêng", color: "#0000ff", speak: "Cảnh báo rác nguy hại." },
-    "rác hữu cơ": { name: "HỮU CƠ", action: "Bỏ Thùng Xanh Lá", color: "#00ff00", speak: "Rác hữu cơ. Vui lòng bỏ vào thùng xanh lá." },
-    "rác vô cơ": { name: "VÔ CƠ", action: "Bỏ Thùng Đỏ", color: "#0064ff", speak: "Rác vô cơ sinh hoạt. Vui lòng bỏ thùng đỏ." }
+let autoMode      = false;
+let prevFrameData = null;
+let motionTimer   = null;
+let lastAutoScan  = 0;
+let motionPct     = 0;
+
+let qrInstance    = null;
+let popupTimer    = null;
+
+// ---------- Danh mục rác ----------
+const TRASH_DICT = {
+    "nhựa":        { name:"RÁC NHỰA",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🧴", wiki:"Nhựa",
+                     speak:"Nhựa. Vui lòng bỏ vào thùng màu vàng." },
+    "giấy":        { name:"RÁC GIẤY",   action:"Bỏ Thùng Xanh Dương",    color:"#ff8c00", icon:"📄", wiki:"Giấy",
+                     speak:"Giấy. Vui lòng bỏ vào thùng màu xanh dương." },
+    "kim loại":    { name:"KIM LOẠI",   action:"Bỏ Thùng Vàng",          color:"#00d4ff", icon:"🔩", wiki:"Kim_loại",
+                     speak:"Kim loại. Vui lòng bỏ vào thùng màu vàng." },
+    "thủy tinh":   { name:"THỦY TINH",  action:"Cẩn thận, Bỏ Thùng Vàng",color:"#a0c8ff", icon:"🍾", wiki:"Thủy_tinh",
+                     speak:"Thủy tinh. Cẩn thận rơi vỡ, bỏ vào thùng vàng." },
+    "rác điện tử": { name:"ĐIỆN TỬ",    action:"Thu Gom Riêng",           color:"#ff3d5a", icon:"📱", wiki:"Rác_thải_điện_tử",
+                     speak:"Cảnh báo. Rác điện tử nguy hại, cần thu gom riêng." },
+    "rác hữu cơ":  { name:"HỮU CƠ",    action:"Bỏ Thùng Xanh Lá",       color:"#00e87a", icon:"🍃", wiki:"Chất_thải_hữu_cơ",
+                     speak:"Rác hữu cơ. Vui lòng bỏ vào thùng xanh lá." },
+    "rác vô cơ":   { name:"VÔ CƠ",     action:"Bỏ Thùng Đỏ",            color:"#4d8cff", icon:"🗑️", wiki:"Rác_thải",
+                     speak:"Rác vô cơ sinh hoạt. Vui lòng bỏ thùng đỏ." }
 };
 
-let stats = { "nhựa": 0, "giấy": 0, "kim loại": 0, "thủy tinh": 0, "rác điện tử": 0, "rác hữu cơ": 0, "rác vô cơ": 0 };
+const CLASS_ALIASES = {
+    "plastic":"nhựa","paper":"giấy","metal":"kim loại","glass":"thủy tinh",
+    "electronic":"rác điện tử","organic":"rác hữu cơ","inorganic":"rác vô cơ",
+    "nhua":"nhựa","giay":"giấy","kim loai":"kim loại","thuy tinh":"thủy tinh",
+    "huu co":"rác hữu cơ","vo co":"rác vô cơ","dien tu":"rác điện tử"
+};
+
+let stats = {};
+Object.keys(TRASH_DICT).forEach(k => stats[k] = 0);
 let totalTrash = 0;
+let scanHistory = [];
+
+// ============================================================
+//  UI HELPERS
+// ============================================================
+function setStatus(text, type = "") {
+    document.getElementById("status-badge").innerText = text;
+    document.getElementById("status-dot").className = "status-dot " + type;
+}
 
 function renderStats() {
     const list = document.getElementById("stats-list");
-    if (!list) return; 
-    
-    list.innerHTML = "";
-    for (let key in stats) {
-        if(dict[key]) {
-            list.innerHTML += `
-                <div class="stat-card" style="border-left-color: ${dict[key].color};">
-                    <span class="stat-name">${dict[key].name}</span>
-                    <span class="stat-value" id="count-${key}">${stats[key]}</span>
-                </div>
-            `;
-        }
-    }
+    if (!list) return;
+    list.innerHTML = Object.entries(TRASH_DICT).map(([key, info]) => `
+        <div class="stat-card" style="border-left-color:${info.color}">
+            <span class="stat-name">${info.icon} ${info.name}</span>
+            <span class="stat-value" id="cnt-${eid(key)}" style="color:${info.color}">${stats[key]}</span>
+        </div>`).join("");
 }
 renderStats();
 
-// NẠP DANH SÁCH GIỌNG NÓI CỦA TRÌNH DUYỆT
-let availableVoices = [];
-window.speechSynthesis.onvoiceschanged = () => {
-    availableVoices = window.speechSynthesis.getVoices();
-};
+function eid(k) { return k.replace(/ /g,"-"); }
 
-function speakVietnamese(text) {
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'vi-VN';
-        utterance.rate = 1.0; 
-        
-        let voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
-        let viVoice = voices.find(voice => voice.lang.includes('vi') || voice.name.includes('Vietnamese') || voice.name.includes('Google tiếng Việt'));
-        
-        if (viVoice) utterance.voice = viVoice;
+function bumpCount(key) {
+    const el = document.getElementById("cnt-" + eid(key));
+    if (!el) return;
+    el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");
+    el.innerText = stats[key];
+}
 
-        window.speechSynthesis.speak(utterance);
+function addHistory(name, icon, color) {
+    const t = new Date();
+    const ts = [t.getHours(),t.getMinutes(),t.getSeconds()].map(n=>String(n).padStart(2,"0")).join(":");
+    scanHistory.unshift({ name, icon, color, ts });
+    if (scanHistory.length > MAX_HISTORY) scanHistory.pop();
+    const ul = document.getElementById("history-list");
+    ul.innerHTML = scanHistory.length === 0
+        ? '<li class="history-empty">Chưa có dữ liệu</li>'
+        : scanHistory.map(h => `
+            <li class="history-item">
+                <span>${h.icon} <span style="color:${h.color};font-weight:700">${h.name}</span></span>
+                <span class="h-time">${h.ts}</span>
+            </li>`).join("");
+}
+
+function resetStats() {
+    if (!confirm("Reset toàn bộ thống kê?")) return;
+    Object.keys(stats).forEach(k => stats[k] = 0);
+    totalTrash = 0; scanHistory = [];
+    renderStats();
+    document.getElementById("total-count").innerText = "0";
+    document.getElementById("history-list").innerHTML = '<li class="history-empty">Chưa có dữ liệu</li>';
+}
+
+// ============================================================
+//  SPEECH
+// ============================================================
+let voices = [];
+window.speechSynthesis.onvoiceschanged = () => { voices = window.speechSynthesis.getVoices(); };
+function speak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "vi-VN"; u.rate = 1.0;
+    const vv = (voices.length ? voices : window.speechSynthesis.getVoices());
+    const v = vv.find(x => x.lang.includes("vi") || x.name.toLowerCase().includes("viet"));
+    if (v) u.voice = v;
+    window.speechSynthesis.speak(u);
+}
+
+// ============================================================
+//  ROI
+// ============================================================
+function getROI(canvas) {
+    const size = Math.floor(Math.min(canvas.width, canvas.height) * ROI_RATIO);
+    const x = Math.floor((canvas.width  - size) / 2);
+    const y = Math.floor((canvas.height - size) / 2);
+    return { x, y, size };
+}
+
+function drawROIOverlay(canvas) {
+    document.getElementById("roi-overlay")?.remove();
+    const { x, y, size } = getROI(canvas);
+    const W = canvas.width, H = canvas.height;
+    const ns = "http://www.w3.org/2000/svg";
+
+    const svg = document.createElementNS(ns, "svg");
+    svg.id = "roi-overlay";
+    Object.assign(svg.style, { position:"absolute", top:"0", left:"0", pointerEvents:"none", zIndex:"3" });
+    svg.setAttribute("width", W); svg.setAttribute("height", H);
+
+    // dark mask outside ROI
+    const mask = document.createElementNS(ns, "mask"); mask.id = "roi-mask";
+    const bg = document.createElementNS(ns, "rect");
+    bg.setAttribute("width", W); bg.setAttribute("height", H); bg.setAttribute("fill", "white");
+    const hole = document.createElementNS(ns, "rect");
+    hole.setAttribute("x",x); hole.setAttribute("y",y);
+    hole.setAttribute("width",size); hole.setAttribute("height",size);
+    hole.setAttribute("fill","black"); hole.setAttribute("rx","4");
+    mask.append(bg, hole); svg.appendChild(mask);
+
+    const shadow = document.createElementNS(ns, "rect");
+    shadow.setAttribute("width",W); shadow.setAttribute("height",H);
+    shadow.setAttribute("fill","rgba(0,0,0,0.55)"); shadow.setAttribute("mask","url(#roi-mask)");
+    svg.appendChild(shadow);
+
+    // dashed border
+    const border = document.createElementNS(ns, "rect");
+    border.id = "roi-border";
+    border.setAttribute("x",x); border.setAttribute("y",y);
+    border.setAttribute("width",size); border.setAttribute("height",size);
+    border.setAttribute("fill","none"); border.setAttribute("stroke","#00e87a");
+    border.setAttribute("stroke-width","2.5"); border.setAttribute("stroke-dasharray","8 4");
+    border.setAttribute("rx","4");
+    svg.appendChild(border);
+
+    // corner accents
+    [[x,y,1,1],[x+size,y,-1,1],[x+size,y+size,-1,-1],[x,y+size,1,-1]].forEach(([cx,cy,dx,dy]) => {
+        const p = document.createElementNS(ns,"path");
+        p.setAttribute("d",`M${cx+dx*18} ${cy} L${cx} ${cy} L${cx} ${cy+dy*18}`);
+        p.setAttribute("stroke","#00d4ff"); p.setAttribute("stroke-width","3");
+        p.setAttribute("fill","none"); p.setAttribute("stroke-linecap","round");
+        svg.appendChild(p);
+    });
+
+    document.getElementById("webcam-container").appendChild(svg);
+}
+
+function setROIState(state) {
+    // state: "idle" | "motion" | "scanning"
+    const b = document.getElementById("roi-border"); if (!b) return;
+    if (state === "scanning") {
+        b.setAttribute("stroke","#ffc800"); b.setAttribute("stroke-dasharray","");
+    } else if (state === "motion") {
+        b.setAttribute("stroke","#00d4ff"); b.setAttribute("stroke-dasharray","6 3");
+    } else {
+        b.setAttribute("stroke","#00e87a"); b.setAttribute("stroke-dasharray","8 4");
     }
 }
 
-async function init() {
-    const startBtn = document.getElementById("start-btn");
-    startBtn.innerText = "Đang tải AI, đợi xíu...";
-    startBtn.disabled = true;
+// ============================================================
+//  MOTION DETECTION
+// ============================================================
+function detectMotion(canvas) {
+    const { x, y, size } = getROI(canvas);
+    const ctx = document.createElement("canvas");
+    ctx.width = size; ctx.height = size;
+    const c = ctx.getContext("2d");
+    c.drawImage(canvas, x, y, size, size, 0, 0, size, size);
+    const curr = c.getImageData(0, 0, size, size).data;
 
-    const modelURL = URL + "model.json";
-    const metadataURL = URL + "metadata.json";
+    if (!prevFrameData || prevFrameData.length !== curr.length) {
+        prevFrameData = curr.slice();
+        return 0;
+    }
 
+    let changed = 0;
+    const total = size * size;
+    for (let i = 0; i < curr.length; i += 4) {
+        const dr = Math.abs(curr[i]   - prevFrameData[i]);
+        const dg = Math.abs(curr[i+1] - prevFrameData[i+1]);
+        const db = Math.abs(curr[i+2] - prevFrameData[i+2]);
+        if ((dr + dg + db) / 3 > MOTION_THRESHOLD) changed++;
+    }
+    prevFrameData = curr.slice();
+    return (changed / total) * 100;
+}
+
+function updateMotionUI(pct) {
+    const fill = document.getElementById("motion-fill");
+    const txt  = document.getElementById("motion-pct");
+    if (!fill || !txt) return;
+    const clamped = Math.min(pct, 100);
+    fill.style.width = clamped + "%";
+    txt.innerText = Math.round(clamped) + "%";
+    fill.className = "motion-fill" + (pct >= MOTION_TRIGGER_PCT * 1.5 ? " high" : pct >= MOTION_TRIGGER_PCT ? " trigger" : "");
+}
+
+// ============================================================
+//  AUTO MODE
+// ============================================================
+function toggleAutoMode(on) {
+    autoMode = on;
+    const mb = document.getElementById("motion-bar");
+    const sb = document.getElementById("scan-btn");
+    if (on) {
+        mb.style.display = "flex";
+        sb.style.display = "none";
+        setStatus("CHẾ ĐỘ TỰ ĐỘNG", "ready");
+        prevFrameData = null;
+    } else {
+        mb.style.display = "none";
+        sb.style.display = "inline-block";
+        clearTimeout(motionTimer); motionTimer = null;
+        setROIState("idle");
+        setStatus("SẴN SÀNG", "ready");
+    }
+}
+
+// ============================================================
+//  QR CODE
+// ============================================================
+function showQR(wikiSlug) {
+    const url = "https://vi.wikipedia.org/wiki/" + encodeURIComponent(wikiSlug);
+    const el  = document.getElementById("qr-code");
+    const urlEl = document.getElementById("qr-url");
+    el.innerHTML = "";
+    urlEl.innerText = url;
+
+    if (typeof QRCode !== "undefined") {
+        new QRCode(el, { text: url, width: 110, height: 110, colorDark:"#000", colorLight:"#fff", correctLevel: QRCode.CorrectLevel.M });
+    } else {
+        // fallback: QR via Google Charts API
+        const img = document.createElement("img");
+        img.src = `https://chart.googleapis.com/chart?cht=qr&chs=110x110&chl=${encodeURIComponent(url)}`;
+        img.width = 110; img.height = 110;
+        el.appendChild(img);
+    }
+}
+
+// ============================================================
+//  CONFIDENCE BARS (realtime)
+// ============================================================
+const BAR_COLORS = ["#00d4ff","#00e87a","#ff8c00","#ffc800","#ff3d5a","#4d8cff","#a0c8ff"];
+let lastBarUpdate = 0;
+
+async function updateConfBars() {
+    if (!model || !webcam || !isCameraReady) return;
+    const panel = document.getElementById("confidence-panel");
+    const div   = document.getElementById("conf-bars");
+    if (!panel || !div) return;
     try {
-        model = await tmImage.load(modelURL, metadataURL);
+        const pred = await model.predict(webcam.canvas);
+        const sorted = [...pred].sort((a,b) => b.probability - a.probability);
+        if (panel.style.display === "none") panel.style.display = "block";
+        div.innerHTML = sorted.map((p,i) => {
+            const pct = Math.round(p.probability * 100);
+            const col = BAR_COLORS[i % BAR_COLORS.length];
+            const lbl = p.className.length > 11 ? p.className.slice(0,11)+"…" : p.className;
+            return `<div class="conf-bar-row">
+                <span class="conf-bar-label">${lbl}</span>
+                <div class="conf-bar-track"><div class="conf-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+                <span class="conf-bar-pct" style="color:${col}">${pct}%</span>
+            </div>`;
+        }).join("");
+    } catch(_) {}
+}
+
+// ============================================================
+//  CLASS MATCHING
+// ============================================================
+function norm(s) {
+    return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 ]/g,"").trim();
+}
+function matchKey(className) {
+    const raw = className.toLowerCase().trim();
+    if (TRASH_DICT[raw]) return raw;
+    if (CLASS_ALIASES[raw]) return CLASS_ALIASES[raw];
+    for (const k of Object.keys(TRASH_DICT)) if (raw.includes(k)) return k;
+    const nr = norm(raw);
+    for (const k of Object.keys(TRASH_DICT)) if (nr.includes(norm(k))) return k;
+    for (const [a,m] of Object.entries(CLASS_ALIASES)) if (nr.includes(norm(a))) return m;
+    return null;
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+async function init() {
+    const btn = document.getElementById("start-btn");
+    btn.innerText = "Đang tải AI..."; btn.disabled = true;
+    setStatus("ĐANG TẢI", "active");
+    try {
+        model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
         maxPredictions = model.getTotalClasses();
 
-        const flip = true; 
-        webcam = new tmImage.Webcam(600, 600, flip); 
-        await webcam.setup(); 
-        await webcam.play();
-        window.requestAnimationFrame(loop);
+        const flip = true;
+        webcam = new tmImage.Webcam(560, 420, flip);
+        await webcam.setup(); await webcam.play();
 
         document.getElementById("webcam-container").appendChild(webcam.canvas);
-        
-        // Hiện khung ngắm ROI sau khi camera lên
-        document.getElementById("roi-box").style.display = "block";
-        
-        startBtn.style.display = "none";
-        document.getElementById("scan-btn").style.display = "block";
-        
-        const statusBadge = document.getElementById("status-badge");
-        statusBadge.innerText = "ĐANG CHỜ";
-        statusBadge.style.color = "#00ff00";
-        isCameraReady = true;
+        drawROIOverlay(webcam.canvas);
+        window.requestAnimationFrame(mainLoop);
 
-    } catch (error) {
-        alert("Lỗi tải Model! Kiểm tra mạng hoặc cấp quyền Camera.");
-        startBtn.innerText = "Lỗi kết nối. F5 thử lại.";
+        btn.style.display = "none";
+        document.getElementById("scan-btn").style.display = "inline-block";
+        document.getElementById("reset-btn").style.display = "inline-block";
+        document.getElementById("auto-toggle-wrap").style.display = "flex";
+        isCameraReady = true;
+        setStatus("SẴN SÀNG", "ready");
+
+    } catch(err) {
+        console.error(err);
+        alert("Lỗi tải Model!\n" + err.message);
+        btn.innerText = "🔄 Thử lại"; btn.disabled = false;
+        setStatus("LỖI", "");
     }
 }
 
-async function loop() {
-    webcam.update(); 
-    window.requestAnimationFrame(loop);
+// ============================================================
+//  MAIN LOOP
+// ============================================================
+let loopTick = 0;
+async function mainLoop() {
+    webcam.update();
+    loopTick++;
+
+    // Cập nhật confidence bars mỗi ~400ms (mỗi 24 frame @ ~60fps)
+    if (loopTick % 24 === 0) updateConfBars();
+
+    // Motion detection mỗi ~100ms (mỗi 6 frame)
+    if (autoMode && loopTick % 6 === 0 && isCameraReady && !isScanning) {
+        motionPct = detectMotion(webcam.canvas);
+        updateMotionUI(motionPct);
+
+        const now = Date.now();
+        if (motionPct >= MOTION_TRIGGER_PCT && now - lastAutoScan > MOTION_COOLDOWN_MS) {
+            setROIState("motion");
+            setStatus("PHÁT HIỆN VẬT THỂ", "motion");
+
+            if (!motionTimer) {
+                motionTimer = setTimeout(() => {
+                    motionTimer = null;
+                    if (autoMode && motionPct >= MOTION_TRIGGER_PCT && !isScanning) {
+                        scanTrash();
+                    } else {
+                        setROIState("idle");
+                        setStatus("CHẾ ĐỘ TỰ ĐỘNG", "ready");
+                    }
+                }, MOTION_CONFIRM_MS);
+            }
+        } else if (motionPct < MOTION_TRIGGER_PCT) {
+            if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
+            if (!isScanning) { setROIState("idle"); setStatus("CHẾ ĐỘ TỰ ĐỘNG", "ready"); }
+        }
+    }
+
+    window.requestAnimationFrame(mainLoop);
 }
 
-// HÀM QUÉT RÁC THEO VÙNG KHUNG NGẮM (ROI)
+// ============================================================
+//  SCAN
+// ============================================================
 async function scanTrash() {
-    if (!isCameraReady) return;
+    if (!isCameraReady || isScanning) return;
+    isScanning = true;
+    if (autoMode) lastAutoScan = Date.now();
 
     const scanBtn = document.getElementById("scan-btn");
-    const statusBadge = document.getElementById("status-badge");
-    const popup = document.getElementById("result-popup");
-    const roiBox = document.getElementById("roi-box");
+    scanBtn.classList.add("scanning"); scanBtn.innerText = "⏳ ĐANG PHÂN TÍCH...";
+    setStatus("ĐANG PHÂN TÍCH", "active");
+    setROIState("scanning");
 
-    // Bật hiệu ứng quét nhấp nháy trên viền khung
-    roiBox.classList.add("scanning");
-    scanBtn.innerText = "⏳ ĐANG PHÂN TÍCH...";
-    statusBadge.innerText = "ĐANG PHÂN TÍCH";
-    statusBadge.style.color = "yellow";
+    try {
+        const canvas = webcam.canvas;
+        const { x, y, size } = getROI(canvas);
+        const crop = document.createElement("canvas");
+        crop.width = size; crop.height = size;
+        crop.getContext("2d").drawImage(canvas, x, y, size, size, 0, 0, size, size);
 
-    // 1. Cắt ảnh 300x300 ngay giữa tâm Camera
-    const roiSize = 300;
-    const startX = (webcam.canvas.width - roiSize) / 2;
-    const startY = (webcam.canvas.height - roiSize) / 2;
+        const preds = await model.predict(crop);
+        console.log("[SmartBin]", preds.map(p=>`${p.className}:${(p.probability*100).toFixed(1)}%`).join(" | "));
 
-    const hiddenCanvas = document.createElement("canvas");
-    hiddenCanvas.width = roiSize;
-    hiddenCanvas.height = roiSize;
-    const ctx = hiddenCanvas.getContext("2d");
-    
-    ctx.drawImage(webcam.canvas, startX, startY, roiSize, roiSize, 0, 0, roiSize, roiSize);
+        const sorted = [...preds].sort((a,b) => b.probability - a.probability);
+        const best = sorted.find(p => !p.className.toLowerCase().includes("background") &&
+                                      !p.className.toLowerCase().includes("nền"));
 
-    // 2. Gửi mảnh ảnh đã cắt (chỉ chứa rác) cho AI phân tích
-    const prediction = await model.predict(hiddenCanvas);
-    
-    let bestClass = "";
-    let highestProb = 0;
-    for (let i = 0; i < maxPredictions; i++) {
-        if (prediction[i].probability > highestProb) {
-            highestProb = prediction[i].probability;
-            bestClass = prediction[i].className.toLowerCase();
+        if (best && best.probability >= CONFIDENCE_THRESHOLD) {
+            const key = matchKey(best.className);
+            if (key) {
+                const info = TRASH_DICT[key];
+                const conf = Math.round(best.probability * 100);
+
+                // Show popup
+                document.getElementById("popup-icon").innerText = info.icon;
+                document.getElementById("res-name").innerText   = info.name + ` (${conf}%)`;
+                document.getElementById("res-name").style.color = info.color;
+                document.getElementById("res-action").innerText = "👉 " + info.action;
+                document.getElementById("conf-badge").innerText = conf + "% tin cậy";
+                const popup = document.getElementById("result-popup");
+                popup.style.borderColor  = info.color;
+                popup.style.boxShadow    = `0 0 40px ${info.color}44, 0 20px 60px rgba(0,0,0,.85)`;
+                popup.classList.add("visible");
+
+                // QR code
+                showQR(info.wiki);
+
+                // Stats
+                stats[key]++; totalTrash++;
+                bumpCount(key);
+                document.getElementById("total-count").innerText = totalTrash;
+                addHistory(info.name, info.icon, info.color);
+                speak(info.speak);
+                setStatus("ĐÃ NHẬN DIỆN", "done");
+
+                clearTimeout(popupTimer);
+                popupTimer = setTimeout(closePopup, 5000);
+                return;
+            }
         }
+
+        // Không nhận diện được
+        speak("Không nhận diện được. Vui lòng thử lại.");
+        setStatus(autoMode ? "CHẾ ĐỘ TỰ ĐỘNG" : "KHÔNG RÕ", autoMode ? "ready" : "");
+        setTimeout(resetScanUI, 1200);
+
+    } catch(err) {
+        console.error(err);
+        setStatus("LỖI QUÉT", "");
+        setTimeout(resetScanUI, 1200);
     }
+}
 
-    if (highestProb > 0.70 && !bestClass.includes("background")) {
-        let foundKey = Object.keys(dict).find(k => bestClass.includes(k));
-        
-        if (foundKey) {
-            let info = dict[foundKey];
-            let conf = Math.round(highestProb * 100);
+function closePopup() {
+    clearTimeout(popupTimer);
+    document.getElementById("result-popup").classList.remove("visible");
+    resetScanUI();
+}
 
-            document.getElementById("res-name").innerText = `♻️ ${info.name} (${conf}%)`;
-            document.getElementById("res-name").style.color = info.color;
-            document.getElementById("res-action").innerText = `Hướng dẫn: ${info.action}`;
-            popup.style.borderColor = info.color;
-            popup.style.display = "block";
-
-            statusBadge.innerText = "ĐÃ NHẬN DIỆN";
-            statusBadge.style.color = "#00dcff";
-
-            stats[foundKey]++;
-            totalTrash++;
-            document.getElementById(`count-${foundKey}`).innerText = stats[foundKey];
-            document.getElementById("total-count").innerText = totalTrash;
-
-            speakVietnamese(info.speak);
-
-            setTimeout(() => {
-                popup.style.display = "none";
-                statusBadge.innerText = "ĐANG CHỜ";
-                statusBadge.style.color = "#00ff00";
-                scanBtn.innerText = "🎯 NHẬN DIỆN RÁC";
-                roiBox.classList.remove("scanning"); // Tắt hiệu ứng
-            }, 4000);
-            
-            return;
-        }
-    }
-    
-    speakVietnamese("Không nhận diện được vật thể rõ ràng. Vui lòng thử lại.");
-    scanBtn.innerText = "🎯 NHẬN DIỆN RÁC";
-    statusBadge.innerText = "ĐANG CHỜ";
-    statusBadge.style.color = "#00ff00";
-    roiBox.classList.remove("scanning"); 
+function resetScanUI() {
+    const btn = document.getElementById("scan-btn");
+    btn.classList.remove("scanning");
+    btn.innerText = "🎯 NHẬN DIỆN RÁC";
+    setROIState("idle");
+    setStatus(autoMode ? "CHẾ ĐỘ TỰ ĐỘNG" : "SẴN SÀNG", "ready");
+    isScanning = false;
 }
