@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartBin   AI</title>
+    <title>SmartBin AI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    <!-- QR Code generator -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -18,8 +17,8 @@
     <div class="header-left">
         <div class="logo-icon">♻</div>
         <div>
-            <h1>SMARTBIN </h1>
-            <p class="subtitle">PTIT AI </p>
+            <h1>SMARTBIN</h1>
+            <p class="subtitle">PTIT AI</p>
         </div>
     </div>
     <div class="header-right">
@@ -27,7 +26,6 @@
             <span class="status-dot" id="status-dot"></span>
             <span id="status-badge">CHƯA BẬT CAMERA</span>
         </div>
-        <!-- Toggle auto mode -->
         <label class="auto-toggle" id="auto-toggle-wrap" style="display:none;">
             <input type="checkbox" id="auto-mode-chk" onchange="toggleAutoMode(this.checked)">
             <span class="toggle-slider"></span>
@@ -37,10 +35,8 @@
 </div>
 
 <div class="main-container">
-
     <!-- CỘT CAMERA -->
     <div class="camera-section">
-        <!-- Motion indicator -->
         <div class="motion-bar" id="motion-bar" style="display:none;">
             <span class="motion-label">CHUYỂN ĐỘNG</span>
             <div class="motion-track"><div class="motion-fill" id="motion-fill"></div></div>
@@ -49,7 +45,6 @@
 
         <div class="camera-wrapper" id="webcam-container"></div>
 
-        <!-- Confidence bars realtime -->
         <div class="confidence-panel" id="confidence-panel" style="display:none;">
             <p class="conf-label">ĐỘ TIN CẬY REALTIME</p>
             <div id="conf-bars"></div>
@@ -95,13 +90,31 @@
             </ul>
         </div>
 
+        <!-- THANH TÍCH ĐIỂM GAMIFICATION -->
+        <div class="points-box">
+            <h3 class="points-title">🎁 ĐIỂM TÍCH LŨY</h3>
+            <div class="points-score"><span id="user-points">0</span><span class="pt-unit">/50</span></div>
+            <div class="pt-bar-track"><div class="pt-bar-fill" id="pt-bar-fill"></div></div>
+        </div>
+
         <div class="total-box">
             <h3>TỔNG CỘNG</h3>
             <span id="total-count">0</span>
             <p>lượt nhận diện</p>
         </div>
     </div>
+</div>
 
+<!-- POPUP NHẬN LÌ XÌ -->
+<div id="reward-popup">
+    <button class="popup-close" onclick="closeReward()">✕</button>
+    <div class="reward-content">
+        <div class="reward-icon">🧧</div>
+        <h2>CHÚC MỪNG!</h2>
+        <p>Bạn đã tích đủ 50 điểm phân loại rác.</p>
+        <div class="reward-qr" id="reward-qr"></div>
+        <p class="reward-hint">Quét mã bằng Ví MoMo để giật Lì xì / Voucher nhé!</p>
+    </div>
 </div>
 
 <script src="script.js"></script>
