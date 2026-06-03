@@ -247,8 +247,117 @@ function resetStats() {
 }
 
 // ============================================================
-//  SPEECH
+//  REWARDS SHOP
 // ============================================================
+const REWARDS = {
+  voucher: [
+    { id:"v1",  icon:"☕", name:"Cà phê miễn phí",       cost:80,   desc:"1 ly cà phê size M tại căng tin trường hoặc đối tác tham gia.",    category:"voucher", tag:"Phổ biến" },
+    { id:"v2",  icon:"🧋", name:"Trà sữa 1/2 giá",        cost:60,   desc:"Giảm 50% cho 1 ly trà sữa bất kỳ tại chuỗi đối tác.",             category:"voucher", tag:"Hot" },
+    { id:"v3",  icon:"🍕", name:"Voucher ăn uống 20K",    cost:120,  desc:"Phiếu giảm giá 20.000đ tại căng tin hoặc quán ăn đối tác.",        category:"voucher", tag:"" },
+    { id:"v4",  icon:"🚲", name:"Thuê xe đạp miễn phí",   cost:50,   desc:"1 lượt thuê xe đạp công cộng trong khuôn viên trường, miễn phí.",   category:"voucher", tag:"" },
+    { id:"v5",  icon:"🖨️", name:"In 20 trang miễn phí",   cost:40,   desc:"20 tờ A4 in đen trắng miễn phí tại phòng in của trường.",           category:"voucher", tag:"Tiện ích" },
+    { id:"v6",  icon:"🎬", name:"Vé xem phim -30%",       cost:150,  desc:"Giảm 30% vé xem phim bất kỳ tại rạp đối tác cuối tuần.",           category:"voucher", tag:"Cuối tuần" },
+  ],
+  item: [
+    { id:"i1",  icon:"🎒", name:"Túi vải tái chế SmartBin", cost:200, desc:"Túi canvas in logo SmartBin, thân thiện môi trường, dùng thay túi nilon.", category:"item", tag:"Eco" },
+    { id:"i2",  icon:"🖊️", name:"Bút làm từ giấy tái chế",  cost:80,  desc:"Bút bi thân giấy tái chế, mực xanh hoặc đen tuỳ chọn.",          category:"item", tag:"" },
+    { id:"i3",  icon:"🌿", name:"Hạt giống trồng cây nhỏ",  cost:100, desc:"Gói hạt giống rau thơm (húng quế, hành, cà chua bi) để trồng tại nhà.", category:"item", tag:"Xanh" },
+    { id:"i4",  icon:"🧴", name:"Bình nước giữ nhiệt",      cost:350, desc:"Bình giữ nhiệt 500ml in logo SmartBin, không dùng chai nhựa nữa!", category:"item", tag:"Premium" },
+    { id:"i5",  icon:"📓", name:"Sổ tay giấy tái chế",     cost:160, desc:"Sổ tay bìa cứng, ruột giấy tái chế 96 trang, kẻ ngang.",           category:"item", tag:"" },
+  ],
+  eco: [
+    { id:"e1",  icon:"🌳", name:"Trồng 1 cây xanh",         cost:300, desc:"Điểm của bạn tài trợ trồng 1 cây tại rừng phòng hộ — bạn nhận chứng chỉ điện tử.", category:"eco", tag:"Ý nghĩa" },
+    { id:"e2",  icon:"🐠", name:"Dọn rác biển 1m²",         cost:150, desc:"Đóng góp vào chiến dịch làm sạch bãi biển, bạn nhận badge 'Người Bảo Vệ Đại Dương'.", category:"eco", tag:"" },
+    { id:"e3",  icon:"⚡", name:"1 kWh điện tái tạo",       cost:200, desc:"Tài trợ sản xuất 1 kWh điện từ năng lượng mặt trời cho cộng đồng.", category:"eco", tag:"Sáng tạo" },
+    { id:"e4",  icon:"🐝", name:"Bảo vệ tổ ong tự nhiên",   cost:120, desc:"Hỗ trợ dự án nuôi ong tự nhiên, nhận nhãn 'Người Bạn Của Ong'.",   category:"eco", tag:"Dễ thương" },
+  ],
+  special: [
+    { id:"s1",  icon:"🏅", name:"Huy hiệu Chiến Binh Xanh", cost:500, desc:"NFT huy hiệu kỹ thuật số độc quyền 'Chiến Binh Xanh PTIT' — cấp số lượng có hạn!", category:"special", tag:"Độc quyền" },
+    { id:"s2",  icon:"🎓", name:"+0.1 điểm rèn luyện",      cost:400, desc:"Cộng 0.1 vào điểm rèn luyện học kỳ (có xác nhận của Đoàn Trường).", category:"special", tag:"Học sinh" },
+    { id:"s3",  icon:"📸", name:"Khung ảnh Profile Xanh",   cost:80,  desc:"Bộ filter ảnh đại diện 'SmartBin Champion' dùng trên MXH.",         category:"special", tag:"Trend" },
+    { id:"s4",  icon:"🌏", name:"Tên lên Bảng Danh Dự",     cost:250, desc:"Tên bạn sẽ xuất hiện trên bảng Anh Hùng Môi Trường tại khuôn viên.", category:"special", tag:"Vinh danh" },
+  ]
+};
+
+let currentTab = "voucher";
+let pendingReward = null;
+
+function openShop() {
+  document.getElementById("shop-overlay").classList.add("open");
+  document.getElementById("shop-pts-num").innerText = totalPoints;
+  renderShopGrid("voucher");
+}
+function closeShop() {
+  document.getElementById("shop-overlay").classList.remove("open");
+  cancelRedeem();
+}
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll(".shop-tab").forEach(t => t.classList.remove("active"));
+  btn.classList.add("active");
+  renderShopGrid(tab);
+}
+
+function renderShopGrid(tab) {
+  const grid = document.getElementById("shop-grid");
+  const items = REWARDS[tab] || [];
+  grid.innerHTML = items.map(r => {
+    const canAfford = totalPoints >= r.cost;
+    return `
+      <div class="reward-card ${canAfford ? '' : 'locked'}" onclick="${canAfford ? `startRedeem('${r.id}')` : ''}">
+        ${r.tag ? `<span class="reward-tag">${r.tag}</span>` : ''}
+        <div class="reward-icon">${r.icon}</div>
+        <div class="reward-name">${r.name}</div>
+        <div class="reward-desc">${r.desc}</div>
+        <div class="reward-cost ${canAfford ? 'afford' : 'noafford'}">
+          ${canAfford ? '✅' : '🔒'} <strong>${r.cost}</strong> điểm
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function startRedeem(id) {
+  const all = Object.values(REWARDS).flat();
+  const r = all.find(x => x.id === id);
+  if (!r) return;
+  pendingReward = r;
+  document.getElementById("redeem-icon").innerText = r.icon;
+  document.getElementById("redeem-name").innerText = r.name;
+  document.getElementById("redeem-desc").innerText  = r.desc;
+  document.getElementById("redeem-cost").innerText  = `${r.cost} điểm`;
+  document.getElementById("redeem-layer").style.display = "flex";
+}
+function cancelRedeem() {
+  pendingReward = null;
+  document.getElementById("redeem-layer").style.display = "none";
+  document.getElementById("success-layer").style.display = "none";
+}
+function confirmRedeem() {
+  if (!pendingReward) return;
+  if (totalPoints < pendingReward.cost) {
+    alert("Không đủ điểm!"); return;
+  }
+  totalPoints -= pendingReward.cost;
+  renderPointsPanel();
+  document.getElementById("shop-pts-num").innerText = totalPoints;
+
+  // Generate a fake redemption code
+  const code = "SB-" + pendingReward.id.toUpperCase() + "-" + Math.random().toString(36).slice(2,8).toUpperCase();
+  document.getElementById("success-anim").innerText = pendingReward.icon;
+  document.getElementById("success-msg").innerText  = `Bạn đã đổi thành công: ${pendingReward.name}`;
+  document.getElementById("success-code").innerText = code;
+
+  document.getElementById("redeem-layer").style.display = "none";
+  document.getElementById("success-layer").style.display = "flex";
+  speak(`Chúc mừng! Đổi quà thành công: ${pendingReward.name}`);
+  pendingReward = null;
+  renderShopGrid(currentTab);
+}
+function closeSuccess() {
+  document.getElementById("success-layer").style.display = "none";
+}
+
+
 let voices = [];
 window.speechSynthesis.onvoiceschanged = () => { voices = window.speechSynthesis.getVoices(); };
 function speak(text) {
