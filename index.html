@@ -33,7 +33,63 @@
             <span class="toggle-slider"></span>
             <span class="toggle-label">TỰ ĐỘNG</span>
         </label>
+        <button class="btn-shop" onclick="openShop()">🎁 ĐỔI QUÀ</button>
     </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     REWARDS SHOP MODAL
+══════════════════════════════════════════ -->
+<div id="shop-overlay" onclick="if(event.target===this)closeShop()">
+  <div id="shop-modal">
+    <div class="shop-header">
+      <div>
+        <h2 class="shop-title">🎁 CỬA HÀNG QUÀ TẶNG</h2>
+        <p class="shop-sub">Dùng điểm xanh để đổi phần thưởng!</p>
+      </div>
+      <div class="shop-pts-display">
+        <span class="shop-pts-num" id="shop-pts-num">0</span>
+        <span class="shop-pts-lbl">điểm hiện có</span>
+      </div>
+      <button class="shop-close" onclick="closeShop()">✕</button>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="shop-tabs">
+      <button class="shop-tab active" onclick="switchTab('voucher',this)">🎫 Voucher</button>
+      <button class="shop-tab" onclick="switchTab('item',this)">🎒 Vật phẩm</button>
+      <button class="shop-tab" onclick="switchTab('eco',this)">🌱 Eco</button>
+      <button class="shop-tab" onclick="switchTab('special',this)">⭐ Đặc biệt</button>
+    </div>
+
+    <div id="shop-grid" class="shop-grid"></div>
+
+    <!-- Redeem confirm layer -->
+    <div id="redeem-layer" style="display:none">
+      <div class="redeem-card">
+        <div class="redeem-icon" id="redeem-icon">🎁</div>
+        <h3 id="redeem-name">Tên quà</h3>
+        <p id="redeem-desc">Mô tả</p>
+        <div class="redeem-cost" id="redeem-cost">100 điểm</div>
+        <div class="redeem-btns">
+          <button class="btn-confirm" onclick="confirmRedeem()">✅ Xác nhận đổi</button>
+          <button class="btn-cancel"  onclick="cancelRedeem()">Huỷ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success layer -->
+    <div id="success-layer" style="display:none">
+      <div class="success-card">
+        <div class="success-anim" id="success-anim">🎉</div>
+        <h3>Đổi quà thành công!</h3>
+        <p id="success-msg"></p>
+        <div class="success-code" id="success-code"></div>
+        <p class="success-note">Lưu mã này lại và trình cho nhân viên hoặc đối tác để nhận quà.</p>
+        <button class="btn-confirm" onclick="closeSuccess()">Xong 🎊</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="main-container">
