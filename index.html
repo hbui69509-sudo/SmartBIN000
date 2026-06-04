@@ -1,45 +1,42 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartBin   AI</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    <!-- QR Code generator -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartBin AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Be+Vietnam+Pro:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- HEADER -->
 <div class="header">
-    <div class="header-left">
-        <div class="logo-icon">♻</div>
-        <div>
-            <h1>SMARTBIN </h1>
-            <p class="subtitle">PTIT AI </p>
-        </div>
+  <div class="header-left">
+    <div class="logo-icon">♻</div>
+    <div>
+      <h1>SMARTBIN</h1>
+      <p class="subtitle">PTIT AI</p>
     </div>
-    <div class="header-right">
-        <div class="status-wrap">
-            <span class="status-dot" id="status-dot"></span>
-            <span id="status-badge">CHƯA BẬT CAMERA</span>
-        </div>
-        <!-- Toggle auto mode -->
-        <label class="auto-toggle" id="auto-toggle-wrap" style="display:none;">
-            <input type="checkbox" id="auto-mode-chk" onchange="toggleAutoMode(this.checked)">
-            <span class="toggle-slider"></span>
-            <span class="toggle-label">TỰ ĐỘNG</span>
-        </label>
-        <button class="btn-shop" onclick="openShop()">🎁 ĐỔI QUÀ</button>
+  </div>
+  <div class="header-right">
+    <div class="status-wrap">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-badge">CHƯA BẬT CAMERA</span>
     </div>
+    <label class="auto-toggle" id="auto-toggle-wrap" style="display:none;">
+      <input type="checkbox" id="auto-mode-chk" onchange="toggleAutoMode(this.checked)">
+      <span class="toggle-slider"></span>
+      <span class="toggle-label">TỰ ĐỘNG</span>
+    </label>
+    <button class="btn-shop" onclick="openShop()">🎁 ĐỔI QUÀ</button>
+  </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     REWARDS SHOP MODAL
-══════════════════════════════════════════ -->
+<!-- REWARDS SHOP MODAL -->
 <div id="shop-overlay" onclick="if(event.target===this)closeShop()">
   <div id="shop-modal">
     <div class="shop-header">
@@ -54,7 +51,6 @@
       <button class="shop-close" onclick="closeShop()">✕</button>
     </div>
 
-    <!-- Tab bar -->
     <div class="shop-tabs">
       <button class="shop-tab active" onclick="switchTab('voucher',this)">🎫 Voucher</button>
       <button class="shop-tab" onclick="switchTab('item',this)">🎒 Vật phẩm</button>
@@ -64,7 +60,6 @@
 
     <div id="shop-grid" class="shop-grid"></div>
 
-    <!-- Redeem confirm layer -->
     <div id="redeem-layer" style="display:none">
       <div class="redeem-card">
         <div class="redeem-icon" id="redeem-icon">🎁</div>
@@ -73,12 +68,11 @@
         <div class="redeem-cost" id="redeem-cost">100 điểm</div>
         <div class="redeem-btns">
           <button class="btn-confirm" onclick="confirmRedeem()">✅ Xác nhận đổi</button>
-          <button class="btn-cancel"  onclick="cancelRedeem()">Huỷ</button>
+          <button class="btn-cancel" onclick="cancelRedeem()">Huỷ</button>
         </div>
       </div>
     </div>
 
-    <!-- Success layer -->
     <div id="success-layer" style="display:none">
       <div class="success-card">
         <div class="success-anim" id="success-anim">🎉</div>
@@ -92,81 +86,69 @@
   </div>
 </div>
 
+<!-- MAIN -->
 <div class="main-container">
 
-    <!-- CỘT CAMERA -->
-    <div class="camera-section">
-        <!-- Motion indicator -->
-        <div class="motion-bar" id="motion-bar" style="display:none;">
-            <span class="motion-label">CHUYỂN ĐỘNG</span>
-            <div class="motion-track"><div class="motion-fill" id="motion-fill"></div></div>
-            <span class="motion-pct" id="motion-pct">0%</span>
-        </div>
-
-        <div class="camera-wrapper" id="webcam-container"></div>
-
-        <!-- Confidence bars realtime -->
-        <div class="confidence-panel" id="confidence-panel" style="display:none;">
-            <p class="conf-label">ĐỘ TIN CẬY REALTIME</p>
-            <div id="conf-bars"></div>
-        </div>
-
-        <div class="btn-container">
-            <button class="btn btn-start" id="start-btn" onclick="init()">
-                📷 Bật Camera & AI
-            </button>
-            <button class="btn btn-scan" id="scan-btn" onclick="scanTrash()" style="display:none;">
-                🎯 NHẬN DIỆN RÁC
-            </button>
-            <button class="btn btn-reset" id="reset-btn" onclick="resetStats()" style="display:none;" title="Reset">🔄</button>
-        </div>
-
-        <!-- Popup kết quả + QR -->
-        <div id="result-popup">
-            <button class="popup-close" onclick="closePopup()">✕</button>
-            <div class="popup-left">
-                <div class="popup-icon" id="popup-icon">♻️</div>
-                <h1 id="res-name">Nhựa </h1>
-                <p id="res-action">Bỏ thùng vàng</p>
-                <div class="conf-badge" id="conf-badge">95%</div>
-                <p class="wiki-hint">📖 Quét QR để xem thêm</p>
-            </div>
-            <div class="popup-middle">
-                <div id="res-steps"></div>
-            </div>
-            <div class="popup-right">
-                <p class="qr-label">WIKIPEDIA</p>
-                <div id="qr-code"></div>
-                <p class="qr-url" id="qr-url"></p>
-            </div>
-        </div>
-
-        <!-- Points toast -->
-        <div id="points-toast"></div>
+  <!-- Camera -->
+  <div class="camera-section">
+    <div class="motion-bar" id="motion-bar" style="display:none;">
+      <span class="motion-label">CHUYỂN ĐỘNG</span>
+      <div class="motion-track"><div class="motion-fill" id="motion-fill"></div></div>
+      <span class="motion-pct" id="motion-pct">0%</span>
     </div>
 
-    <!-- CỘT THỐNG KÊ -->
-    <div class="stats-section">
-        <h2>📊 THỐNG KÊ</h2>
+    <div class="camera-wrapper" id="webcam-container"></div>
 
-        <!-- Points panel -->
-        <div id="points-panel" class="points-panel"></div>
-
-        <div id="stats-list"></div>
-
-        <div class="history-box">
-            <h3>🕓 Lần scan gần nhất</h3>
-            <ul id="history-list">
-                <li class="history-empty">Chưa có dữ liệu</li>
-            </ul>
-        </div>
-
-        <div class="total-box">
-            <h3>TỔNG CỘNG</h3>
-            <span id="total-count">0</span>
-            <p>lượt nhận diện</p>
-        </div>
+    <div class="confidence-panel" id="confidence-panel" style="display:none;">
+      <p class="conf-label">ĐỘ TIN CẬY REALTIME</p>
+      <div id="conf-bars"></div>
     </div>
+
+    <div class="btn-container">
+      <button class="btn btn-start" id="start-btn" onclick="init()">📷 Bật Camera & AI</button>
+      <button class="btn btn-scan" id="scan-btn" onclick="scanTrash()" style="display:none;">🎯 NHẬN DIỆN RÁC</button>
+      <button class="btn btn-reset" id="reset-btn" onclick="resetStats()" style="display:none;" title="Reset">🔄</button>
+    </div>
+
+    <div id="result-popup">
+      <button class="popup-close" onclick="closePopup()">✕</button>
+      <div class="popup-left">
+        <div class="popup-icon" id="popup-icon">♻️</div>
+        <h1 id="res-name">Nhựa</h1>
+        <p id="res-action">Bỏ thùng vàng</p>
+        <div class="conf-badge" id="conf-badge">95%</div>
+        <p class="wiki-hint">📖 Quét QR để xem thêm</p>
+      </div>
+      <div class="popup-middle">
+        <div id="res-steps"></div>
+      </div>
+      <div class="popup-right">
+        <p class="qr-label">WIKIPEDIA</p>
+        <div id="qr-code"></div>
+        <p class="qr-url" id="qr-url"></p>
+      </div>
+    </div>
+
+    <div id="points-toast"></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-section">
+    <h2>📊 THỐNG KÊ</h2>
+    <div id="points-panel" class="points-panel"></div>
+    <div id="stats-list"></div>
+    <div class="history-box">
+      <h3>🕓 Lần scan gần nhất</h3>
+      <ul id="history-list">
+        <li class="history-empty">Chưa có dữ liệu</li>
+      </ul>
+    </div>
+    <div class="total-box">
+      <h3>TỔNG CỘNG</h3>
+      <span id="total-count">0</span>
+      <p>lượt nhận diện</p>
+    </div>
+  </div>
 
 </div>
 
