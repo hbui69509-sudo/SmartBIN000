@@ -1,7 +1,8 @@
 // --- Cấu hình ---
 const MODEL_URL            = "https://teachablemachine.withgoogle.com/models/ssBt_zMdp/";
-const CONFIDENCE_THRESHOLD = 0.50;
+const CONFIDENCE_THRESHOLD = 0.72;
 const ROI_RATIO            = 0.50;
+const MODEL_INPUT_SIZE     = 224;
 const MAX_HISTORY          = 5;
 const MOTION_THRESHOLD     = 10;
 const MOTION_TRIGGER_PCT   = 3;
@@ -9,6 +10,8 @@ const MOTION_STILL_PCT     = 1.5;
 const MOTION_COOLDOWN_MS   = 4000;
 const MOTION_CONFIRM_MS    = 800;
 const STREAK_TIMEOUT_MS    = 30000;
+const SMOOTH_FRAMES        = 5;
+const SCAN_DEBOUNCE_MS     = 1500;
 
 // --- State ---
 let model, webcam;
@@ -21,6 +24,8 @@ let lastAutoScan   = 0;
 let motionPct      = 0;
 let motionDetected = false;
 let popupTimer     = null;
+let predBuffer     = [];
+let lastScanMs     = 0;
 
 // --- Dữ liệu rác ---
 const TRASH_DICT = {
@@ -84,15 +89,51 @@ const CLASS_ALIASES = {
     "huu co": "rác hữu cơ", "vo co": "rác vô cơ", "dien tu": "rác điện tử"
 };
 
+const REWARDS = {
+    voucher: [
+        { id: "v1", icon: "☕", name: "Cà phê miễn phí",     cost: 80,  tag: "Phổ biến",  desc: "1 ly cà phê size M tại căng tin trường hoặc đối tác tham gia." },
+        { id: "v2", icon: "🧋", name: "Trà sữa 1/2 giá",      cost: 60,  tag: "Hot",       desc: "Giảm 50% cho 1 ly trà sữa bất kỳ tại chuỗi đối tác." },
+        { id: "v3", icon: "🍕", name: "Voucher ăn uống 20K",  cost: 120, tag: "",          desc: "Phiếu giảm giá 20.000đ tại căng tin hoặc quán ăn đối tác." },
+        { id: "v4", icon: "🚲", name: "Thuê xe đạp miễn phí", cost: 50,  tag: "",          desc: "1 lượt thuê xe đạp công cộng trong khuôn viên trường, miễn phí." },
+        { id: "v5", icon: "🖨️", name: "In 20 trang miễn phí", cost: 40,  tag: "Tiện ích",  desc: "20 tờ A4 in đen trắng miễn phí tại phòng in của trường." },
+        { id: "v6", icon: "🎬", name: "Vé xem phim -30%",     cost: 150, tag: "Cuối tuần", desc: "Giảm 30% vé xem phim bất kỳ tại rạp đối tác cuối tuần." },
+    ],
+    item: [
+        { id: "i1", icon: "🎒", name: "Túi vải tái chế SmartBin", cost: 200, tag: "Eco",     desc: "Túi canvas in logo SmartBin, thân thiện môi trường, dùng thay túi nilon." },
+        { id: "i2", icon: "🖊️", name: "Bút làm từ giấy tái chế",  cost: 80,  tag: "",        desc: "Bút bi thân giấy tái chế, mực xanh hoặc đen tuỳ chọn." },
+        { id: "i3", icon: "🌿", name: "Hạt giống trồng cây nhỏ",  cost: 100, tag: "Xanh",    desc: "Gói hạt giống rau thơm (húng quế, hành, cà chua bi) để trồng tại nhà." },
+        { id: "i4", icon: "🧴", name: "Bình nước giữ nhiệt",      cost: 350, tag: "Premium", desc: "Bình giữ nhiệt 500ml in logo SmartBin, không dùng chai nhựa nữa!" },
+        { id: "i5", icon: "📓", name: "Sổ tay giấy tái chế",      cost: 160, tag: "",        desc: "Sổ tay bìa cứng, ruột giấy tái chế 96 trang, kẻ ngang." },
+    ],
+    eco: [
+        { id: "e1", icon: "🌳", name: "Trồng 1 cây xanh",       cost: 300, tag: "Ý nghĩa",  desc: "Điểm của bạn tài trợ trồng 1 cây tại rừng phòng hộ — bạn nhận chứng chỉ điện tử." },
+        { id: "e2", icon: "🐠", name: "Dọn rác biển 1m²",       cost: 150, tag: "",         desc: "Đóng góp vào chiến dịch làm sạch bãi biển, bạn nhận badge 'Người Bảo Vệ Đại Dương'." },
+        { id: "e3", icon: "⚡", name: "1 kWh điện tái tạo",     cost: 200, tag: "Sáng tạo", desc: "Tài trợ sản xuất 1 kWh điện từ năng lượng mặt trời cho cộng đồng." },
+        { id: "e4", icon: "🐝", name: "Bảo vệ tổ ong tự nhiên", cost: 120, tag: "Dễ thương",desc: "Hỗ trợ dự án nuôi ong tự nhiên, nhận nhãn 'Người Bạn Của Ong'." },
+    ],
+    special: [
+        { id: "s1", icon: "🏅", name: "Huy hiệu Chiến Binh Xanh", cost: 500, tag: "Độc quyền", desc: "NFT huy hiệu kỹ thuật số độc quyền 'Chiến Binh Xanh PTIT' — cấp số lượng có hạn!" },
+        { id: "s2", icon: "🎓", name: "+0.1 điểm rèn luyện",      cost: 400, tag: "Học sinh",  desc: "Cộng 0.1 vào điểm rèn luyện học kỳ (có xác nhận của Đoàn Trường)." },
+        { id: "s3", icon: "📸", name: "Khung ảnh Profile Xanh",   cost: 80,  tag: "Trend",     desc: "Bộ filter ảnh đại diện 'SmartBin Champion' dùng trên MXH." },
+        { id: "s4", icon: "🌏", name: "Tên lên Bảng Danh Dự",     cost: 250, tag: "Vinh danh", desc: "Tên bạn sẽ xuất hiện trên bảng Anh Hùng Môi Trường tại khuôn viên." },
+    ]
+};
+
+const BAR_COLORS = ["#00d4ff", "#00e87a", "#ff8c00", "#ffc800", "#ff3d5a", "#4d8cff", "#a0c8ff"];
+
 let totalPoints   = 0;
 let currentStreak = 0;
 let lastScanTime  = 0;
 let totalTrash    = 0;
 let scanHistory   = [];
 let stats         = {};
+let currentTab    = "voucher";
+let pendingReward = null;
+let voices        = [];
+
 Object.keys(TRASH_DICT).forEach(k => stats[k] = 0);
 
-// --- Hệ thống điểm ---
+// --- Points ---
 function getCurrentRank() {
     let rank = POINT_RANKS[0];
     for (const r of POINT_RANKS) if (totalPoints >= r.min) rank = r;
@@ -110,7 +151,7 @@ function addPoints(key, conf) {
     const streakBonus = currentStreak > 1 ? Math.min(currentStreak - 1, 5) : 0;
     const earned      = base + confBonus + streakBonus;
     totalPoints += earned;
-    return { earned, base, confBonus, streakBonus };
+    return { earned, confBonus, streakBonus };
 }
 
 function updateStreak() {
@@ -156,7 +197,7 @@ function showPointsToast(pts, streakBonus, confBonus) {
     setTimeout(() => toast.classList.remove("visible"), 2500);
 }
 
-// --- UI Helpers ---
+// --- UI ---
 function setStatus(text, type = "") {
     document.getElementById("status-badge").innerText = text;
     document.getElementById("status-dot").className = "status-dot " + type;
@@ -192,8 +233,7 @@ function addHistory(name, icon, color, pts) {
     const ts = [t.getHours(), t.getMinutes(), t.getSeconds()].map(n => String(n).padStart(2, "0")).join(":");
     scanHistory.unshift({ name, icon, color, ts, pts });
     if (scanHistory.length > MAX_HISTORY) scanHistory.pop();
-    const ul = document.getElementById("history-list");
-    ul.innerHTML = scanHistory.map(h => `
+    document.getElementById("history-list").innerHTML = scanHistory.map(h => `
         <li class="history-item">
             <span>${h.icon} <span style="color:${h.color};font-weight:700">${h.name}</span></span>
             <span class="h-right"><span class="h-pts">+${h.pts || 0}pts</span><span class="h-time">${h.ts}</span></span>
@@ -211,40 +251,7 @@ function resetStats() {
     document.getElementById("history-list").innerHTML = '<li class="history-empty">Chưa có dữ liệu</li>';
 }
 
-// --- Rewards Shop ---
-const REWARDS = {
-    voucher: [
-        { id: "v1", icon: "☕", name: "Cà phê miễn phí",     cost: 80,  tag: "Phổ biến",  desc: "1 ly cà phê size M tại căng tin trường hoặc đối tác tham gia." },
-        { id: "v2", icon: "🧋", name: "Trà sữa 1/2 giá",      cost: 60,  tag: "Hot",       desc: "Giảm 50% cho 1 ly trà sữa bất kỳ tại chuỗi đối tác." },
-        { id: "v3", icon: "🍕", name: "Voucher ăn uống 20K",  cost: 120, tag: "",          desc: "Phiếu giảm giá 20.000đ tại căng tin hoặc quán ăn đối tác." },
-        { id: "v4", icon: "🚲", name: "Thuê xe đạp miễn phí", cost: 50,  tag: "",          desc: "1 lượt thuê xe đạp công cộng trong khuôn viên trường, miễn phí." },
-        { id: "v5", icon: "🖨️", name: "In 20 trang miễn phí", cost: 40,  tag: "Tiện ích",  desc: "20 tờ A4 in đen trắng miễn phí tại phòng in của trường." },
-        { id: "v6", icon: "🎬", name: "Vé xem phim -30%",     cost: 150, tag: "Cuối tuần", desc: "Giảm 30% vé xem phim bất kỳ tại rạp đối tác cuối tuần." },
-    ],
-    item: [
-        { id: "i1", icon: "🎒", name: "Túi vải tái chế SmartBin", cost: 200, tag: "Eco",     desc: "Túi canvas in logo SmartBin, thân thiện môi trường, dùng thay túi nilon." },
-        { id: "i2", icon: "🖊️", name: "Bút làm từ giấy tái chế",  cost: 80,  tag: "",        desc: "Bút bi thân giấy tái chế, mực xanh hoặc đen tuỳ chọn." },
-        { id: "i3", icon: "🌿", name: "Hạt giống trồng cây nhỏ",  cost: 100, tag: "Xanh",    desc: "Gói hạt giống rau thơm (húng quế, hành, cà chua bi) để trồng tại nhà." },
-        { id: "i4", icon: "🧴", name: "Bình nước giữ nhiệt",      cost: 350, tag: "Premium", desc: "Bình giữ nhiệt 500ml in logo SmartBin, không dùng chai nhựa nữa!" },
-        { id: "i5", icon: "📓", name: "Sổ tay giấy tái chế",      cost: 160, tag: "",        desc: "Sổ tay bìa cứng, ruột giấy tái chế 96 trang, kẻ ngang." },
-    ],
-    eco: [
-        { id: "e1", icon: "🌳", name: "Trồng 1 cây xanh",        cost: 300, tag: "Ý nghĩa",  desc: "Điểm của bạn tài trợ trồng 1 cây tại rừng phòng hộ — bạn nhận chứng chỉ điện tử." },
-        { id: "e2", icon: "🐠", name: "Dọn rác biển 1m²",        cost: 150, tag: "",         desc: "Đóng góp vào chiến dịch làm sạch bãi biển, bạn nhận badge 'Người Bảo Vệ Đại Dương'." },
-        { id: "e3", icon: "⚡", name: "1 kWh điện tái tạo",      cost: 200, tag: "Sáng tạo", desc: "Tài trợ sản xuất 1 kWh điện từ năng lượng mặt trời cho cộng đồng." },
-        { id: "e4", icon: "🐝", name: "Bảo vệ tổ ong tự nhiên",  cost: 120, tag: "Dễ thương",desc: "Hỗ trợ dự án nuôi ong tự nhiên, nhận nhãn 'Người Bạn Của Ong'." },
-    ],
-    special: [
-        { id: "s1", icon: "🏅", name: "Huy hiệu Chiến Binh Xanh", cost: 500, tag: "Độc quyền", desc: "NFT huy hiệu kỹ thuật số độc quyền 'Chiến Binh Xanh PTIT' — cấp số lượng có hạn!" },
-        { id: "s2", icon: "🎓", name: "+0.1 điểm rèn luyện",      cost: 400, tag: "Học sinh",  desc: "Cộng 0.1 vào điểm rèn luyện học kỳ (có xác nhận của Đoàn Trường)." },
-        { id: "s3", icon: "📸", name: "Khung ảnh Profile Xanh",   cost: 80,  tag: "Trend",     desc: "Bộ filter ảnh đại diện 'SmartBin Champion' dùng trên MXH." },
-        { id: "s4", icon: "🌏", name: "Tên lên Bảng Danh Dự",     cost: 250, tag: "Vinh danh", desc: "Tên bạn sẽ xuất hiện trên bảng Anh Hùng Môi Trường tại khuôn viên." },
-    ]
-};
-
-let currentTab   = "voucher";
-let pendingReward = null;
-
+// --- Shop ---
 function openShop() {
     document.getElementById("shop-overlay").classList.add("open");
     document.getElementById("shop-pts-num").innerText = totalPoints;
@@ -264,9 +271,8 @@ function switchTab(tab, btn) {
 }
 
 function renderShopGrid(tab) {
-    const grid  = document.getElementById("shop-grid");
     const items = REWARDS[tab] || [];
-    grid.innerHTML = items.map(r => {
+    document.getElementById("shop-grid").innerHTML = items.map(r => {
         const canAfford = totalPoints >= r.cost;
         return `
             <div class="reward-card ${canAfford ? '' : 'locked'}" onclick="${canAfford ? `startRedeem('${r.id}')` : ''}">
@@ -320,7 +326,6 @@ function closeSuccess() {
 }
 
 // --- Speech ---
-let voices = [];
 window.speechSynthesis.onvoiceschanged = () => { voices = window.speechSynthesis.getVoices(); };
 
 function speak(text) {
@@ -335,7 +340,23 @@ function speak(text) {
     window.speechSynthesis.speak(u);
 }
 
-// --- ROI ---
+// --- Class Matching ---
+function norm(s) {
+    return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
+}
+
+function matchKey(className) {
+    const raw = className.toLowerCase().trim();
+    if (TRASH_DICT[raw]) return raw;
+    if (CLASS_ALIASES[raw]) return CLASS_ALIASES[raw];
+    for (const k of Object.keys(TRASH_DICT)) if (raw.includes(k)) return k;
+    const nr = norm(raw);
+    for (const k of Object.keys(TRASH_DICT)) if (nr.includes(norm(k))) return k;
+    for (const [a, m] of Object.entries(CLASS_ALIASES)) if (nr.includes(norm(a))) return m;
+    return null;
+}
+
+// --- Inference ---
 function getROI(canvas) {
     const size = Math.floor(Math.min(canvas.width, canvas.height) * ROI_RATIO);
     const x    = Math.floor((canvas.width  - size) / 2);
@@ -343,6 +364,32 @@ function getROI(canvas) {
     return { x, y, size };
 }
 
+function cropAndResize(canvas, targetSize = MODEL_INPUT_SIZE) {
+    const { x, y, size } = getROI(canvas);
+    const out = document.createElement("canvas");
+    out.width = targetSize; out.height = targetSize;
+    out.getContext("2d").drawImage(canvas, x, y, size, size, 0, 0, targetSize, targetSize);
+    return out;
+}
+
+async function smoothPredict(canvas) {
+    const preds = await model.predict(canvas);
+    predBuffer.push(preds);
+    if (predBuffer.length > SMOOTH_FRAMES) predBuffer.shift();
+    return preds.map((p, i) => ({
+        className:   p.className,
+        probability: predBuffer.reduce((sum, f) => sum + f[i].probability, 0) / predBuffer.length
+    }));
+}
+
+function filterBackground(preds) {
+    return preds.filter(p => {
+        const name = p.className.toLowerCase();
+        return !name.includes("background") && !name.includes("nền");
+    });
+}
+
+// --- ROI Overlay ---
 function drawROIOverlay(canvas) {
     document.getElementById("roi-overlay")?.remove();
     const { x, y, size } = getROI(canvas);
@@ -351,7 +398,6 @@ function drawROIOverlay(canvas) {
 
     const svg = document.createElementNS(ns, "svg");
     svg.id = "roi-overlay";
-    // SVG mirror theo canvas (canvas bị CSS scaleX(-1))
     Object.assign(svg.style, {
         position: "absolute", top: "0", left: "0",
         width: "100%", height: "100%",
@@ -360,7 +406,6 @@ function drawROIOverlay(canvas) {
     });
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
 
-    // Mask vùng tối ngoài ROI
     const mask = document.createElementNS(ns, "mask");
     mask.id = "roi-mask";
     const bg = document.createElementNS(ns, "rect");
@@ -377,7 +422,6 @@ function drawROIOverlay(canvas) {
     shadow.setAttribute("fill", "rgba(0,0,0,0.55)"); shadow.setAttribute("mask", "url(#roi-mask)");
     svg.appendChild(shadow);
 
-    // Viền ROI
     const border = document.createElementNS(ns, "rect");
     border.id = "roi-border";
     border.setAttribute("x", x); border.setAttribute("y", y);
@@ -387,7 +431,6 @@ function drawROIOverlay(canvas) {
     border.setAttribute("rx", "4");
     svg.appendChild(border);
 
-    // Góc accent
     [[x, y, 1, 1], [x+size, y, -1, 1], [x+size, y+size, -1, -1], [x, y+size, 1, -1]].forEach(([cx, cy, dx, dy]) => {
         const p = document.createElementNS(ns, "path");
         p.setAttribute("d", `M${cx+dx*18} ${cy} L${cx} ${cy} L${cx} ${cy+dy*18}`);
@@ -411,7 +454,7 @@ function setROIState(state) {
     }
 }
 
-// --- Motion Detection ---
+// --- Motion ---
 function detectMotion(canvas) {
     const { x, y, size } = getROI(canvas);
     const tmp = document.createElement("canvas");
@@ -447,11 +490,11 @@ function updateMotionUI(pct) {
     fill.className   = "motion-fill" + (pct >= MOTION_TRIGGER_PCT * 1.5 ? " high" : pct >= MOTION_TRIGGER_PCT ? " trigger" : "");
 }
 
-// --- Auto Mode ---
 function toggleAutoMode(on) {
     autoMode       = on;
     motionDetected = false;
     prevFrameData  = null;
+    predBuffer     = [];
     if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
     const mb = document.getElementById("motion-bar");
     const sb = document.getElementById("scan-btn");
@@ -467,35 +510,32 @@ function toggleAutoMode(on) {
     }
 }
 
-// --- QR Code ---
+// --- QR ---
 function showQR(wikiSlug) {
     const url   = "https://vi.wikipedia.org/wiki/" + encodeURIComponent(wikiSlug);
     const el    = document.getElementById("qr-code");
     const urlEl = document.getElementById("qr-url");
     el.innerHTML    = "";
     urlEl.innerText = url;
-
     if (typeof QRCode !== "undefined") {
         new QRCode(el, { text: url, width: 110, height: 110, colorDark: "#000", colorLight: "#fff", correctLevel: QRCode.CorrectLevel.M });
     } else {
-        const img  = document.createElement("img");
-        img.src    = `https://chart.googleapis.com/chart?cht=qr&chs=110x110&chl=${encodeURIComponent(url)}`;
-        img.width  = 110; img.height = 110;
+        const img = document.createElement("img");
+        img.src   = `https://chart.googleapis.com/chart?cht=qr&chs=110x110&chl=${encodeURIComponent(url)}`;
+        img.width = 110; img.height = 110;
         el.appendChild(img);
     }
 }
 
 // --- Confidence Bars ---
-const BAR_COLORS = ["#00d4ff", "#00e87a", "#ff8c00", "#ffc800", "#ff3d5a", "#4d8cff", "#a0c8ff"];
-
 async function updateConfBars() {
     if (!model || !webcam || !isCameraReady) return;
     const panel = document.getElementById("confidence-panel");
     const div   = document.getElementById("conf-bars");
     if (!panel || !div) return;
     try {
-        const pred   = await model.predict(webcam.canvas);
-        const sorted = [...pred].sort((a, b) => b.probability - a.probability);
+        const sorted = filterBackground(await smoothPredict(cropAndResize(webcam.canvas)))
+            .sort((a, b) => b.probability - a.probability);
         if (panel.style.display === "none") panel.style.display = "block";
         div.innerHTML = sorted.map((p, i) => {
             const pct = Math.round(p.probability * 100);
@@ -510,30 +550,13 @@ async function updateConfBars() {
     } catch (_) {}
 }
 
-// --- Class Matching ---
-function norm(s) {
-    return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
-}
-
-function matchKey(className) {
-    const raw = className.toLowerCase().trim();
-    if (TRASH_DICT[raw]) return raw;
-    if (CLASS_ALIASES[raw]) return CLASS_ALIASES[raw];
-    for (const k of Object.keys(TRASH_DICT)) if (raw.includes(k)) return k;
-    const nr = norm(raw);
-    for (const k of Object.keys(TRASH_DICT)) if (nr.includes(norm(k))) return k;
-    for (const [a, m] of Object.entries(CLASS_ALIASES)) if (nr.includes(norm(a))) return m;
-    return null;
-}
-
 // --- Init ---
 async function init() {
     const btn = document.getElementById("start-btn");
     btn.innerText = "Đang tải AI..."; btn.disabled = true;
     setStatus("ĐANG TẢI", "active");
     try {
-        model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
-
+        model  = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
         webcam = new tmImage.Webcam(560, 420, true);
         await webcam.setup(); await webcam.play();
 
@@ -547,7 +570,6 @@ async function init() {
         document.getElementById("auto-toggle-wrap").style.display = "flex";
         isCameraReady = true;
         setStatus("SẴN SÀNG", "ready");
-
     } catch (err) {
         console.error(err);
         alert("Lỗi tải Model!\n" + err.message);
@@ -568,7 +590,7 @@ async function mainLoop() {
         motionPct = detectMotion(webcam.canvas);
         updateMotionUI(motionPct);
 
-        const now       = Date.now();
+        const now        = Date.now();
         const cooldownOk = now - lastAutoScan > MOTION_COOLDOWN_MS;
         if (!cooldownOk) return window.requestAnimationFrame(mainLoop);
 
@@ -601,8 +623,12 @@ async function mainLoop() {
 // --- Scan ---
 async function scanTrash() {
     if (!isCameraReady || isScanning) return;
+    const now = Date.now();
+    if (now - lastScanMs < SCAN_DEBOUNCE_MS) return;
+    lastScanMs = now;
+
     isScanning = true;
-    if (autoMode) lastAutoScan = Date.now();
+    if (autoMode) lastAutoScan = now;
 
     if (!autoMode) {
         const scanBtn = document.getElementById("scan-btn");
@@ -613,18 +639,9 @@ async function scanTrash() {
     setROIState("scanning");
 
     try {
-        const canvas = webcam.canvas;
-        const { x, y, size } = getROI(canvas);
-        const crop = document.createElement("canvas");
-        crop.width = size; crop.height = size;
-        crop.getContext("2d").drawImage(canvas, x, y, size, size, 0, 0, size, size);
-
-        const preds  = await model.predict(crop);
-        const sorted = [...preds].sort((a, b) => b.probability - a.probability);
-        const best   = sorted.find(p =>
-            !p.className.toLowerCase().includes("background") &&
-            !p.className.toLowerCase().includes("nền")
-        );
+        const sorted = filterBackground(await smoothPredict(cropAndResize(webcam.canvas)))
+            .sort((a, b) => b.probability - a.probability);
+        const best = sorted[0] ?? null;
 
         if (best && best.probability >= CONFIDENCE_THRESHOLD) {
             const key = matchKey(best.className);
@@ -636,11 +653,11 @@ async function scanTrash() {
                 const { earned, confBonus, streakBonus } = addPoints(key, conf);
                 renderPointsPanel();
 
-                document.getElementById("popup-icon").innerText   = info.icon;
-                document.getElementById("res-name").innerText     = info.name;
-                document.getElementById("res-name").style.color   = info.color;
-                document.getElementById("res-action").innerText   = "👉 " + info.action;
-                document.getElementById("conf-badge").innerText   = conf + "% tin cậy";
+                document.getElementById("popup-icon").innerText = info.icon;
+                document.getElementById("res-name").innerText   = info.name;
+                document.getElementById("res-name").style.color = info.color;
+                document.getElementById("res-action").innerText = "👉 " + info.action;
+                document.getElementById("conf-badge").innerText = conf + "% tin cậy";
 
                 const stepsEl = document.getElementById("res-steps");
                 if (stepsEl) {
@@ -691,7 +708,7 @@ function closePopup() {
 }
 
 function resetScanUI() {
-    const btn     = document.getElementById("scan-btn");
+    const btn = document.getElementById("scan-btn");
     btn.classList.remove("scanning");
     btn.innerText  = "🎯 NHẬN DIỆN RÁC";
     motionDetected = false;
