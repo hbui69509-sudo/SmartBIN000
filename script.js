@@ -1,4 +1,6 @@
-// --- Cấu hình ---
+// =============================================================================
+// CẤU HÌNH
+// =============================================================================
 const MODEL_URL            = "https://teachablemachine.withgoogle.com/models/ssBt_zMdp/";
 const CONFIDENCE_THRESHOLD = 0.72;
 const ROI_RATIO            = 0.50;
@@ -13,64 +15,129 @@ const STREAK_TIMEOUT_MS    = 30000;
 const SMOOTH_FRAMES        = 5;
 const SCAN_DEBOUNCE_MS     = 1500;
 
-// --- State ---
-let model, webcam;
-let isCameraReady  = false;
-let isScanning     = false;
-let autoMode       = false;
-let prevFrameData  = null;
-let motionTimer    = null;
-let lastAutoScan   = 0;
-let motionPct      = 0;
-let motionDetected = false;
-let popupTimer     = null;
-let predBuffer     = [];
-let lastScanMs     = 0;
-
-// --- Dữ liệu rác ---
+// =============================================================================
+// DỮ LIỆU
+// =============================================================================
 const TRASH_DICT = {
     "Nhựa": {
-        name: "Nhựa", action: "Bỏ Thùng Vàng", color: "#00d4ff", icon: "🧴", wiki: "Nhựa",
-        speak: "Nhựa. Vui lòng bỏ vào thùng màu vàng.", points: 10, risk: "Thấp",
-        steps: ["Rửa sạch chai lọ, hộp nhựa trước khi bỏ", "Loại bỏ nắp kim loại nếu có", "Bỏ vào thùng tái chế màu vàng", "Nhựa PET, HDPE có thể tái chế thành quần áo, đồ dùng mới"],
-        tip: "♻️ 1 chai nhựa tái chế = tiết kiệm đủ điện để chạy bóng đèn 6 tiếng!"
+        name: "Nhựa",
+        action: "Bỏ Thùng Vàng",
+        color: "#00d4ff",
+        icon: "🧴",
+        wiki: "Nhựa",
+        speak: "Nhựa. Vui lòng bỏ vào thùng màu vàng.",
+        points: 10,
+        risk: "Thấp",
+        steps: [
+            "Rửa sạch chai lọ, hộp nhựa trước khi bỏ",
+            "Loại bỏ nắp kim loại nếu có",
+            "Bỏ vào thùng tái chế màu vàng",
+            "Nhựa PET, HDPE có thể tái chế thành quần áo, đồ dùng mới",
+        ],
+        tip: "♻️ 1 chai nhựa tái chế = tiết kiệm đủ điện để chạy bóng đèn 6 tiếng!",
     },
     "Giấy": {
-        name: "Giấy", action: "Bỏ Thùng Xanh Dương", color: "#ff8c00", icon: "📄", wiki: "Giấy",
-        speak: "Giấy. Vui lòng bỏ vào thùng màu xanh dương.", points: 8, risk: "Thấp",
-        steps: ["Giữ giấy khô ráo, không dính ướt", "Xếp gọn, tháo ghim, kẹp kim loại", "Bỏ vào thùng xanh dương hoặc giao cho vựa ve chai", "Carton, báo, giấy văn phòng đều tái chế được"],
-        tip: "🌳 Tái chế 1 tấn giấy = cứu 17 cây xanh và 26.000 lít nước!"
+        name: "Giấy",
+        action: "Bỏ Thùng Xanh Dương",
+        color: "#ff8c00",
+        icon: "📄",
+        wiki: "Giấy",
+        speak: "Giấy. Vui lòng bỏ vào thùng màu xanh dương.",
+        points: 8,
+        risk: "Thấp",
+        steps: [
+            "Giữ giấy khô ráo, không dính ướt",
+            "Xếp gọn, tháo ghim, kẹp kim loại",
+            "Bỏ vào thùng xanh dương hoặc giao cho vựa ve chai",
+            "Carton, báo, giấy văn phòng đều tái chế được",
+        ],
+        tip: "🌳 Tái chế 1 tấn giấy = cứu 17 cây xanh và 26.000 lít nước!",
     },
     "Kim Loại": {
-        name: "Kim Loại", action: "Bỏ Thùng Vàng", color: "#c0c8e0", icon: "🔩", wiki: "Kim_loại",
-        speak: "Kim loại. Vui lòng bỏ vào thùng màu vàng.", points: 15, risk: "Thấp",
-        steps: ["Rửa sạch lon, hộp thiếc trước khi bỏ", "Có thể bóp dẹp để tiết kiệm chỗ", "Bỏ vào thùng tái chế màu vàng", "Kim loại có thể tái chế vô hạn lần mà không mất chất lượng"],
-        tip: "⚡ Tái chế 1 lon nhôm tiết kiệm điện bằng xem TV 3 tiếng!"
+        name: "Kim Loại",
+        action: "Bỏ Thùng Vàng",
+        color: "#c0c8e0",
+        icon: "🔩",
+        wiki: "Kim_loại",
+        speak: "Kim loại. Vui lòng bỏ vào thùng màu vàng.",
+        points: 15,
+        risk: "Thấp",
+        steps: [
+            "Rửa sạch lon, hộp thiếc trước khi bỏ",
+            "Có thể bóp dẹp để tiết kiệm chỗ",
+            "Bỏ vào thùng tái chế màu vàng",
+            "Kim loại có thể tái chế vô hạn lần mà không mất chất lượng",
+        ],
+        tip: "⚡ Tái chế 1 lon nhôm tiết kiệm điện bằng xem TV 3 tiếng!",
     },
     "Thủy Tinh": {
-        name: "Thủy Tinh", action: "Cẩn thận, Bỏ Thùng Vàng", color: "#a0c8ff", icon: "🍾", wiki: "Thủy_tinh",
-        speak: "Thủy tinh. Cẩn thận rơi vỡ, bỏ vào thùng vàng.", points: 12, risk: "Trung bình",
-        steps: ["⚠️ Cẩn thận mảnh vỡ sắc nhọn", "Rửa sạch bên trong chai lọ", "Đặt nhẹ nhàng vào thùng, không ném mạnh", "Thủy tinh có thể tái chế 100%, giữ nguyên chất lượng mãi mãi"],
-        tip: "🔄 Thủy tinh là vật liệu tái chế hoàn hảo nhất — không bao giờ giảm chất lượng!"
+        name: "Thủy Tinh",
+        action: "Cẩn thận, Bỏ Thùng Vàng",
+        color: "#a0c8ff",
+        icon: "🍾",
+        wiki: "Thủy_tinh",
+        speak: "Thủy tinh. Cẩn thận rơi vỡ, bỏ vào thùng vàng.",
+        points: 12,
+        risk: "Trung bình",
+        steps: [
+            "⚠️ Cẩn thận mảnh vỡ sắc nhọn",
+            "Rửa sạch bên trong chai lọ",
+            "Đặt nhẹ nhàng vào thùng, không ném mạnh",
+            "Thủy tinh có thể tái chế 100%, giữ nguyên chất lượng mãi mãi",
+        ],
+        tip: "🔄 Thủy tinh là vật liệu tái chế hoàn hảo nhất — không bao giờ giảm chất lượng!",
     },
     "Rác Điện Tử": {
-        name: "Rác Điện Tử", action: "Thu Gom Riêng", color: "#ff3d5a", icon: "📱", wiki: "Rác_thải_điện_tử",
-        speak: "Cảnh báo. Rác điện tử nguy hại, cần thu gom riêng.", points: 20, risk: "Rất cao",
-        steps: ["⛔ KHÔNG bỏ vào thùng thường — rất nguy hiểm!", "Xóa dữ liệu cá nhân trước khi bỏ", "Mang đến điểm thu gom rác điện tử chuyên dụng", "Liên hệ nhà sản xuất hoặc chuỗi điện máy để thu hồi miễn phí"],
-        tip: "☠️ Pin và vi mạch chứa chì, thủy ngân — gây ung thư nếu thấm vào đất nước!"
+        name: "Rác Điện Tử",
+        action: "Thu Gom Riêng",
+        color: "#ff3d5a",
+        icon: "📱",
+        wiki: "Rác_thải_điện_tử",
+        speak: "Cảnh báo. Rác điện tử nguy hại, cần thu gom riêng.",
+        points: 20,
+        risk: "Rất cao",
+        steps: [
+            "⛔ KHÔNG bỏ vào thùng thường — rất nguy hiểm!",
+            "Xóa dữ liệu cá nhân trước khi bỏ",
+            "Mang đến điểm thu gom rác điện tử chuyên dụng",
+            "Liên hệ nhà sản xuất hoặc chuỗi điện máy để thu hồi miễn phí",
+        ],
+        tip: "☠️ Pin và vi mạch chứa chì, thủy ngân — gây ung thư nếu thấm vào đất nước!",
     },
     "Rác Hữu Cơ": {
-        name: "Rác Hữu Cơ", action: "Bỏ Thùng Xanh Lá", color: "#00e87a", icon: "🍃", wiki: "Chất_thải_hữu_cơ",
-        speak: "Rác hữu cơ. Vui lòng bỏ vào thùng xanh lá.", points: 5, risk: "Thấp",
-        steps: ["Bỏ vào thùng màu xanh lá chuyên rác hữu cơ", "Có thể ủ phân compost tại nhà", "Vỏ trái cây, thức ăn thừa đều phân hủy tự nhiên", "Tuyệt đối không trộn với rác nhựa hoặc rác nguy hại"],
-        tip: "🌱 Rác hữu cơ ủ thành phân compost = phân bón tự nhiên siêu tốt cho cây!"
+        name: "Rác Hữu Cơ",
+        action: "Bỏ Thùng Xanh Lá",
+        color: "#00e87a",
+        icon: "🍃",
+        wiki: "Chất_thải_hữu_cơ",
+        speak: "Rác hữu cơ. Vui lòng bỏ vào thùng xanh lá.",
+        points: 5,
+        risk: "Thấp",
+        steps: [
+            "Bỏ vào thùng màu xanh lá chuyên rác hữu cơ",
+            "Có thể ủ phân compost tại nhà",
+            "Vỏ trái cây, thức ăn thừa đều phân hủy tự nhiên",
+            "Tuyệt đối không trộn với rác nhựa hoặc rác nguy hại",
+        ],
+        tip: "🌱 Rác hữu cơ ủ thành phân compost = phân bón tự nhiên siêu tốt cho cây!",
     },
     "Rác Vô Cơ": {
-        name: "Rác Vô Cơ", action: "Bỏ Thùng Đỏ", color: "#4d8cff", icon: "🗑️", wiki: "Rác_thải",
-        speak: "Rác vô cơ sinh hoạt. Vui lòng bỏ thùng đỏ.", points: 3, risk: "Thấp",
-        steps: ["Bỏ vào thùng rác màu đỏ hoặc đen (rác thải thông thường)", "Buộc chặt túi rác trước khi bỏ", "Sẽ được thu gom và xử lý tại bãi chôn lấp", "Cố gắng giảm thiểu loại rác này trong sinh hoạt hàng ngày"],
-        tip: "💡 Tip: Thay thế đồ nhựa dùng một lần bằng sản phẩm tái sử dụng để giảm rác vô cơ!"
-    }
+        name: "Rác Vô Cơ",
+        action: "Bỏ Thùng Đỏ",
+        color: "#4d8cff",
+        icon: "🗑️",
+        wiki: "Rác_thải",
+        speak: "Rác vô cơ sinh hoạt. Vui lòng bỏ thùng đỏ.",
+        points: 3,
+        risk: "Thấp",
+        steps: [
+            "Bỏ vào thùng rác màu đỏ hoặc đen (rác thải thông thường)",
+            "Buộc chặt túi rác trước khi bỏ",
+            "Sẽ được thu gom và xử lý tại bãi chôn lấp",
+            "Cố gắng giảm thiểu loại rác này trong sinh hoạt hàng ngày",
+        ],
+        tip: "💡 Tip: Thay thế đồ nhựa dùng một lần bằng sản phẩm tái sử dụng để giảm rác vô cơ!",
+    },
 };
 
 const POINT_RANKS = [
@@ -83,65 +150,99 @@ const POINT_RANKS = [
 ];
 
 const CLASS_ALIASES = {
-    "plastic": "nhựa", "paper": "giấy", "metal": "kim loại", "glass": "thủy tinh",
-    "electronic": "rác điện tử", "organic": "rác hữu cơ", "inorganic": "rác vô cơ",
-    "nhua": "nhựa", "giay": "giấy", "kim loai": "kim loại", "thuy tinh": "thủy tinh",
-    "huu co": "rác hữu cơ", "vo co": "rác vô cơ", "dien tu": "rác điện tử"
+    "plastic":    "nhựa",
+    "paper":      "giấy",
+    "metal":      "kim loại",
+    "glass":      "thủy tinh",
+    "electronic": "rác điện tử",
+    "organic":    "rác hữu cơ",
+    "inorganic":  "rác vô cơ",
+    "nhua":       "nhựa",
+    "giay":       "giấy",
+    "kim loai":   "kim loại",
+    "thuy tinh":  "thủy tinh",
+    "huu co":     "rác hữu cơ",
+    "vo co":      "rác vô cơ",
+    "dien tu":    "rác điện tử",
 };
 
 const REWARDS = {
     voucher: [
-        { id: "v1", icon: "☕", name: "Cà phê miễn phí",     cost: 80,  tag: "Phổ biến",  desc: "1 ly cà phê size M tại căng tin trường hoặc đối tác tham gia." },
-        { id: "v2", icon: "🧋", name: "Trà sữa 1/2 giá",      cost: 60,  tag: "Hot",       desc: "Giảm 50% cho 1 ly trà sữa bất kỳ tại chuỗi đối tác." },
-        { id: "v3", icon: "🍕", name: "Voucher ăn uống 20K",  cost: 120, tag: "",          desc: "Phiếu giảm giá 20.000đ tại căng tin hoặc quán ăn đối tác." },
-        { id: "v4", icon: "🚲", name: "Thuê xe đạp miễn phí", cost: 50,  tag: "",          desc: "1 lượt thuê xe đạp công cộng trong khuôn viên trường, miễn phí." },
+        { id: "v1", icon: "☕",  name: "Cà phê miễn phí",     cost: 80,  tag: "Phổ biến",  desc: "1 ly cà phê size M tại căng tin trường hoặc đối tác tham gia." },
+        { id: "v2", icon: "🧋",  name: "Trà sữa 1/2 giá",     cost: 60,  tag: "Hot",       desc: "Giảm 50% cho 1 ly trà sữa bất kỳ tại chuỗi đối tác." },
+        { id: "v3", icon: "🍕",  name: "Voucher ăn uống 20K", cost: 120, tag: "",          desc: "Phiếu giảm giá 20.000đ tại căng tin hoặc quán ăn đối tác." },
+        { id: "v4", icon: "🚲",  name: "Thuê xe đạp miễn phí",cost: 50,  tag: "",          desc: "1 lượt thuê xe đạp công cộng trong khuôn viên trường, miễn phí." },
         { id: "v5", icon: "🖨️", name: "In 20 trang miễn phí", cost: 40,  tag: "Tiện ích",  desc: "20 tờ A4 in đen trắng miễn phí tại phòng in của trường." },
-        { id: "v6", icon: "🎬", name: "Vé xem phim -30%",     cost: 150, tag: "Cuối tuần", desc: "Giảm 30% vé xem phim bất kỳ tại rạp đối tác cuối tuần." },
+        { id: "v6", icon: "🎬",  name: "Vé xem phim -30%",    cost: 150, tag: "Cuối tuần", desc: "Giảm 30% vé xem phim bất kỳ tại rạp đối tác cuối tuần." },
     ],
     item: [
-        { id: "i1", icon: "🎒", name: "Túi vải tái chế SmartBin", cost: 200, tag: "Eco",     desc: "Túi canvas in logo SmartBin, thân thiện môi trường, dùng thay túi nilon." },
+        { id: "i1", icon: "🎒",  name: "Túi vải tái chế SmartBin", cost: 200, tag: "Eco",     desc: "Túi canvas in logo SmartBin, thân thiện môi trường, dùng thay túi nilon." },
         { id: "i2", icon: "🖊️", name: "Bút làm từ giấy tái chế",  cost: 80,  tag: "",        desc: "Bút bi thân giấy tái chế, mực xanh hoặc đen tuỳ chọn." },
-        { id: "i3", icon: "🌿", name: "Hạt giống trồng cây nhỏ",  cost: 100, tag: "Xanh",    desc: "Gói hạt giống rau thơm (húng quế, hành, cà chua bi) để trồng tại nhà." },
-        { id: "i4", icon: "🧴", name: "Bình nước giữ nhiệt",      cost: 350, tag: "Premium", desc: "Bình giữ nhiệt 500ml in logo SmartBin, không dùng chai nhựa nữa!" },
-        { id: "i5", icon: "📓", name: "Sổ tay giấy tái chế",      cost: 160, tag: "",        desc: "Sổ tay bìa cứng, ruột giấy tái chế 96 trang, kẻ ngang." },
+        { id: "i3", icon: "🌿",  name: "Hạt giống trồng cây nhỏ",  cost: 100, tag: "Xanh",    desc: "Gói hạt giống rau thơm (húng quế, hành, cà chua bi) để trồng tại nhà." },
+        { id: "i4", icon: "🧴",  name: "Bình nước giữ nhiệt",      cost: 350, tag: "Premium", desc: "Bình giữ nhiệt 500ml in logo SmartBin, không dùng chai nhựa nữa!" },
+        { id: "i5", icon: "📓",  name: "Sổ tay giấy tái chế",      cost: 160, tag: "",        desc: "Sổ tay bìa cứng, ruột giấy tái chế 96 trang, kẻ ngang." },
     ],
     eco: [
-        { id: "e1", icon: "🌳", name: "Trồng 1 cây xanh",       cost: 300, tag: "Ý nghĩa",  desc: "Điểm của bạn tài trợ trồng 1 cây tại rừng phòng hộ — bạn nhận chứng chỉ điện tử." },
-        { id: "e2", icon: "🐠", name: "Dọn rác biển 1m²",       cost: 150, tag: "",         desc: "Đóng góp vào chiến dịch làm sạch bãi biển, bạn nhận badge 'Người Bảo Vệ Đại Dương'." },
-        { id: "e3", icon: "⚡", name: "1 kWh điện tái tạo",     cost: 200, tag: "Sáng tạo", desc: "Tài trợ sản xuất 1 kWh điện từ năng lượng mặt trời cho cộng đồng." },
-        { id: "e4", icon: "🐝", name: "Bảo vệ tổ ong tự nhiên", cost: 120, tag: "Dễ thương",desc: "Hỗ trợ dự án nuôi ong tự nhiên, nhận nhãn 'Người Bạn Của Ong'." },
+        { id: "e1", icon: "🌳", name: "Trồng 1 cây xanh",        cost: 300, tag: "Ý nghĩa",   desc: "Điểm của bạn tài trợ trồng 1 cây tại rừng phòng hộ — bạn nhận chứng chỉ điện tử." },
+        { id: "e2", icon: "🐠", name: "Dọn rác biển 1m²",        cost: 150, tag: "",           desc: "Đóng góp vào chiến dịch làm sạch bãi biển, bạn nhận badge 'Người Bảo Vệ Đại Dương'." },
+        { id: "e3", icon: "⚡", name: "1 kWh điện tái tạo",      cost: 200, tag: "Sáng tạo",  desc: "Tài trợ sản xuất 1 kWh điện từ năng lượng mặt trời cho cộng đồng." },
+        { id: "e4", icon: "🐝", name: "Bảo vệ tổ ong tự nhiên", cost: 120, tag: "Dễ thương", desc: "Hỗ trợ dự án nuôi ong tự nhiên, nhận nhãn 'Người Bạn Của Ong'." },
     ],
     special: [
         { id: "s1", icon: "🏅", name: "Huy hiệu Chiến Binh Xanh", cost: 500, tag: "Độc quyền", desc: "NFT huy hiệu kỹ thuật số độc quyền 'Chiến Binh Xanh PTIT' — cấp số lượng có hạn!" },
         { id: "s2", icon: "🎓", name: "+0.1 điểm rèn luyện",      cost: 400, tag: "Học sinh",  desc: "Cộng 0.1 vào điểm rèn luyện học kỳ (có xác nhận của Đoàn Trường)." },
         { id: "s3", icon: "📸", name: "Khung ảnh Profile Xanh",   cost: 80,  tag: "Trend",     desc: "Bộ filter ảnh đại diện 'SmartBin Champion' dùng trên MXH." },
         { id: "s4", icon: "🌏", name: "Tên lên Bảng Danh Dự",     cost: 250, tag: "Vinh danh", desc: "Tên bạn sẽ xuất hiện trên bảng Anh Hùng Môi Trường tại khuôn viên." },
-    ]
+    ],
 };
 
 const BAR_COLORS = ["#00d4ff", "#00e87a", "#ff8c00", "#ffc800", "#ff3d5a", "#4d8cff", "#a0c8ff"];
+
+// =============================================================================
+// STATE
+// =============================================================================
+let model, webcam;
+let isCameraReady  = false;
+let isScanning     = false;
+let autoMode       = false;
+let prevFrameData  = null;
+let motionTimer    = null;
+let lastAutoScan   = 0;
+let motionPct      = 0;
+let motionDetected = false;
+let popupTimer     = null;
+let predBuffer     = [];
+let lastScanMs     = 0;
+let loopTick       = 0;
 
 let totalPoints   = 0;
 let currentStreak = 0;
 let lastScanTime  = 0;
 let totalTrash    = 0;
 let scanHistory   = [];
-let stats         = {};
 let currentTab    = "voucher";
 let pendingReward = null;
 let voices        = [];
 
-Object.keys(TRASH_DICT).forEach(k => stats[k] = 0);
+// Khởi tạo stats cho từng loại rác
+const stats = {};
+Object.keys(TRASH_DICT).forEach(k => (stats[k] = 0));
 
-// --- Points ---
+// =============================================================================
+// ĐIỂM & XẾP HẠNG
+// =============================================================================
 function getCurrentRank() {
     let rank = POINT_RANKS[0];
-    for (const r of POINT_RANKS) if (totalPoints >= r.min) rank = r;
+    for (const r of POINT_RANKS) {
+        if (totalPoints >= r.min) rank = r;
+    }
     return rank;
 }
 
 function getNextRank() {
-    for (const r of POINT_RANKS) if (totalPoints < r.min) return r;
+    for (const r of POINT_RANKS) {
+        if (totalPoints < r.min) return r;
+    }
     return null;
 }
 
@@ -155,17 +256,25 @@ function addPoints(key, conf) {
 }
 
 function updateStreak() {
-    const now = Date.now();
-    currentStreak = (now - lastScanTime < STREAK_TIMEOUT_MS) ? currentStreak + 1 : 1;
-    lastScanTime = now;
+    const now     = Date.now();
+    currentStreak = now - lastScanTime < STREAK_TIMEOUT_MS ? currentStreak + 1 : 1;
+    lastScanTime  = now;
 }
 
 function renderPointsPanel() {
     const panel = document.getElementById("points-panel");
     if (!panel) return;
+
     const rank     = getCurrentRank();
     const next     = getNextRank();
     const progress = next ? ((totalPoints - rank.min) / (next.min - rank.min)) * 100 : 100;
+    const streakHTML = currentStreak > 1
+        ? `<div class="streak-badge">🔥 Chuỗi x${currentStreak} — +${Math.min(currentStreak - 1, 5)} bonus!</div>`
+        : "";
+    const nextLabel = next
+        ? `${totalPoints}/${next.min} → ${next.label}`
+        : "🏆 Đã đạt cấp cao nhất!";
+
     panel.innerHTML = `
         <div class="points-header">
             <div class="points-total">
@@ -178,44 +287,57 @@ function renderPointsPanel() {
         </div>
         <div class="points-progress-wrap">
             <div class="pts-progress-track">
-                <div class="pts-progress-fill" style="width:${Math.min(progress,100)}%;background:${rank.color};box-shadow:0 0 10px ${rank.color}66"></div>
+                <div class="pts-progress-fill" style="width:${Math.min(progress, 100)}%;background:${rank.color};box-shadow:0 0 10px ${rank.color}66"></div>
             </div>
-            <span class="pts-next">${next ? `${totalPoints}/${next.min} → ${next.label}` : '🏆 Đã đạt cấp cao nhất!'}</span>
+            <span class="pts-next">${nextLabel}</span>
         </div>
-        ${currentStreak > 1 ? `<div class="streak-badge">🔥 Chuỗi x${currentStreak} — +${Math.min(currentStreak-1,5)} bonus!</div>` : ''}
+        ${streakHTML}
     `;
 }
 
 function showPointsToast(pts, streakBonus, confBonus) {
     const toast = document.getElementById("points-toast");
     if (!toast) return;
+
     const extras = [];
     if (confBonus > 0)   extras.push(`🎯 Độ chính xác cao +${confBonus}`);
     if (streakBonus > 0) extras.push(`🔥 Streak +${streakBonus}`);
-    toast.innerHTML = `<span class="toast-pts">+${pts} điểm</span>${extras.length ? `<span class="toast-bonus">${extras.join(' · ')}</span>` : ''}`;
+
+    const bonusHTML = extras.length
+        ? `<span class="toast-bonus">${extras.join(" · ")}</span>`
+        : "";
+
+    toast.innerHTML = `<span class="toast-pts">+${pts} điểm</span>${bonusHTML}`;
     toast.classList.add("visible");
     setTimeout(() => toast.classList.remove("visible"), 2500);
 }
 
-// --- UI ---
+// =============================================================================
+// UI CHUNG
+// =============================================================================
 function setStatus(text, type = "") {
     document.getElementById("status-badge").innerText = text;
-    document.getElementById("status-dot").className = "status-dot " + type;
+    document.getElementById("status-dot").className   = "status-dot " + type;
 }
 
-function eid(k) { return k.replace(/ /g, "-"); }
+/** Chuyển khoảng trắng trong key thành dấu gạch ngang (dùng cho id DOM) */
+function eid(key) {
+    return key.replace(/ /g, "-");
+}
 
 function renderStats() {
     const list = document.getElementById("stats-list");
     if (!list) return;
-    list.innerHTML = Object.entries(TRASH_DICT).map(([key, info]) => `
-        <div class="stat-card" style="border-left-color:${info.color}">
-            <span class="stat-name">${info.icon} ${info.name}</span>
-            <div class="stat-right">
-                <span class="stat-pts" style="color:${info.color}88">+${info.points}pts</span>
-                <span class="stat-value" id="cnt-${eid(key)}" style="color:${info.color}">${stats[key]}</span>
-            </div>
-        </div>`).join("");
+    list.innerHTML = Object.entries(TRASH_DICT)
+        .map(([key, info]) => `
+            <div class="stat-card" style="border-left-color:${info.color}">
+                <span class="stat-name">${info.icon} ${info.name}</span>
+                <div class="stat-right">
+                    <span class="stat-pts" style="color:${info.color}88">+${info.points}pts</span>
+                    <span class="stat-value" id="cnt-${eid(key)}" style="color:${info.color}">${stats[key]}</span>
+                </div>
+            </div>`)
+        .join("");
 }
 renderStats();
 
@@ -223,35 +345,51 @@ function bumpCount(key) {
     const el = document.getElementById("cnt-" + eid(key));
     if (!el) return;
     el.classList.remove("bump");
-    void el.offsetWidth;
+    void el.offsetWidth; // force reflow để restart animation
     el.classList.add("bump");
     el.innerText = stats[key];
 }
 
 function addHistory(name, icon, color, pts) {
     const t  = new Date();
-    const ts = [t.getHours(), t.getMinutes(), t.getSeconds()].map(n => String(n).padStart(2, "0")).join(":");
+    const ts = [t.getHours(), t.getMinutes(), t.getSeconds()]
+        .map(n => String(n).padStart(2, "0"))
+        .join(":");
+
     scanHistory.unshift({ name, icon, color, ts, pts });
     if (scanHistory.length > MAX_HISTORY) scanHistory.pop();
-    document.getElementById("history-list").innerHTML = scanHistory.map(h => `
-        <li class="history-item">
-            <span>${h.icon} <span style="color:${h.color};font-weight:700">${h.name}</span></span>
-            <span class="h-right"><span class="h-pts">+${h.pts || 0}pts</span><span class="h-time">${h.ts}</span></span>
-        </li>`).join("");
+
+    document.getElementById("history-list").innerHTML = scanHistory
+        .map(h => `
+            <li class="history-item">
+                <span>${h.icon} <span style="color:${h.color};font-weight:700">${h.name}</span></span>
+                <span class="h-right">
+                    <span class="h-pts">+${h.pts || 0}pts</span>
+                    <span class="h-time">${h.ts}</span>
+                </span>
+            </li>`)
+        .join("");
 }
 
 function resetStats() {
     if (!confirm("Reset toàn bộ thống kê và điểm số?")) return;
-    Object.keys(stats).forEach(k => stats[k] = 0);
-    totalTrash = 0; scanHistory = [];
-    totalPoints = 0; currentStreak = 0; lastScanTime = 0;
+
+    Object.keys(stats).forEach(k => (stats[k] = 0));
+    totalTrash    = 0;
+    scanHistory   = [];
+    totalPoints   = 0;
+    currentStreak = 0;
+    lastScanTime  = 0;
+
     renderStats();
     renderPointsPanel();
-    document.getElementById("total-count").innerText = "0";
-    document.getElementById("history-list").innerHTML = '<li class="history-empty">Chưa có dữ liệu</li>';
+    document.getElementById("total-count").innerText       = "0";
+    document.getElementById("history-list").innerHTML      = '<li class="history-empty">Chưa có dữ liệu</li>';
 }
 
-// --- Shop ---
+// =============================================================================
+// CỬA HÀNG (SHOP)
+// =============================================================================
 function openShop() {
     document.getElementById("shop-overlay").classList.add("open");
     document.getElementById("shop-pts-num").innerText = totalPoints;
@@ -272,25 +410,32 @@ function switchTab(tab, btn) {
 
 function renderShopGrid(tab) {
     const items = REWARDS[tab] || [];
-    document.getElementById("shop-grid").innerHTML = items.map(r => {
-        const canAfford = totalPoints >= r.cost;
-        return `
-            <div class="reward-card ${canAfford ? '' : 'locked'}" onclick="${canAfford ? `startRedeem('${r.id}')` : ''}">
-                ${r.tag ? `<span class="reward-tag">${r.tag}</span>` : ''}
-                <div class="reward-icon">${r.icon}</div>
-                <div class="reward-name">${r.name}</div>
-                <div class="reward-desc">${r.desc}</div>
-                <div class="reward-cost ${canAfford ? 'afford' : 'noafford'}">
-                    ${canAfford ? '✅' : '🔒'} <strong>${r.cost}</strong> điểm
-                </div>
-            </div>`;
-    }).join("");
+    document.getElementById("shop-grid").innerHTML = items
+        .map(r => {
+            const canAfford  = totalPoints >= r.cost;
+            const onclickAttr = canAfford ? `onclick="startRedeem('${r.id}')"` : "";
+            const tagHTML     = r.tag ? `<span class="reward-tag">${r.tag}</span>` : "";
+            const costClass   = canAfford ? "afford" : "noafford";
+            const costIcon    = canAfford ? "✅" : "🔒";
+            return `
+                <div class="reward-card ${canAfford ? "" : "locked"}" ${onclickAttr}>
+                    ${tagHTML}
+                    <div class="reward-icon">${r.icon}</div>
+                    <div class="reward-name">${r.name}</div>
+                    <div class="reward-desc">${r.desc}</div>
+                    <div class="reward-cost ${costClass}">
+                        ${costIcon} <strong>${r.cost}</strong> điểm
+                    </div>
+                </div>`;
+        })
+        .join("");
 }
 
 function startRedeem(id) {
     const r = Object.values(REWARDS).flat().find(x => x.id === id);
     if (!r) return;
     pendingReward = r;
+
     document.getElementById("redeem-icon").innerText = r.icon;
     document.getElementById("redeem-name").innerText = r.name;
     document.getElementById("redeem-desc").innerText = r.desc;
@@ -300,22 +445,30 @@ function startRedeem(id) {
 
 function cancelRedeem() {
     pendingReward = null;
-    document.getElementById("redeem-layer").style.display = "none";
+    document.getElementById("redeem-layer").style.display  = "none";
     document.getElementById("success-layer").style.display = "none";
 }
 
 function confirmRedeem() {
     if (!pendingReward) return;
-    if (totalPoints < pendingReward.cost) { alert("Không đủ điểm!"); return; }
+    if (totalPoints < pendingReward.cost) {
+        alert("Không đủ điểm!");
+        return;
+    }
+
     totalPoints -= pendingReward.cost;
     renderPointsPanel();
     document.getElementById("shop-pts-num").innerText = totalPoints;
-    const code = "SB-" + pendingReward.id.toUpperCase() + "-" + Math.random().toString(36).slice(2, 8).toUpperCase();
-    document.getElementById("success-anim").innerText = pendingReward.icon;
-    document.getElementById("success-msg").innerText  = `Bạn đã đổi thành công: ${pendingReward.name}`;
-    document.getElementById("success-code").innerText = code;
-    document.getElementById("redeem-layer").style.display = "none";
+
+    const code = "SB-" + pendingReward.id.toUpperCase() + "-" +
+        Math.random().toString(36).slice(2, 8).toUpperCase();
+
+    document.getElementById("success-anim").innerText  = pendingReward.icon;
+    document.getElementById("success-msg").innerText   = `Bạn đã đổi thành công: ${pendingReward.name}`;
+    document.getElementById("success-code").innerText  = code;
+    document.getElementById("redeem-layer").style.display  = "none";
     document.getElementById("success-layer").style.display = "flex";
+
     speak(`Chúc mừng! Đổi quà thành công: ${pendingReward.name}`);
     pendingReward = null;
     renderShopGrid(currentTab);
@@ -325,38 +478,67 @@ function closeSuccess() {
     document.getElementById("success-layer").style.display = "none";
 }
 
-// --- Speech ---
-window.speechSynthesis.onvoiceschanged = () => { voices = window.speechSynthesis.getVoices(); };
+// =============================================================================
+// GIỌNG NÓI (SPEECH)
+// =============================================================================
+window.speechSynthesis.onvoiceschanged = () => {
+    voices = window.speechSynthesis.getVoices();
+};
 
 function speak(text) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const u  = new SpeechSynthesisUtterance(text);
-    u.lang   = "vi-VN";
-    u.rate   = 1.0;
-    const vv = voices.length ? voices : window.speechSynthesis.getVoices();
-    const v  = vv.find(x => x.lang.includes("vi") || x.name.toLowerCase().includes("viet"));
-    if (v) u.voice = v;
-    window.speechSynthesis.speak(u);
+
+    const utterance  = new SpeechSynthesisUtterance(text);
+    utterance.lang   = "vi-VN";
+    utterance.rate   = 1.0;
+
+    const availableVoices = voices.length ? voices : window.speechSynthesis.getVoices();
+    const viVoice = availableVoices.find(
+        v => v.lang.includes("vi") || v.name.toLowerCase().includes("viet")
+    );
+    if (viVoice) utterance.voice = viVoice;
+
+    window.speechSynthesis.speak(utterance);
 }
 
-// --- Class Matching ---
+// =============================================================================
+// KHỚP TÊN LOẠI RÁC
+// =============================================================================
+/** Chuẩn hóa chuỗi: lowercase, bỏ dấu, bỏ ký tự đặc biệt */
 function norm(s) {
-    return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
+    return s
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9 ]/g, "")
+        .trim();
 }
 
 function matchKey(className) {
     const raw = className.toLowerCase().trim();
-    if (TRASH_DICT[raw]) return raw;
+
+    if (TRASH_DICT[raw])    return raw;
     if (CLASS_ALIASES[raw]) return CLASS_ALIASES[raw];
-    for (const k of Object.keys(TRASH_DICT)) if (raw.includes(k)) return k;
-    const nr = norm(raw);
-    for (const k of Object.keys(TRASH_DICT)) if (nr.includes(norm(k))) return k;
-    for (const [a, m] of Object.entries(CLASS_ALIASES)) if (nr.includes(norm(a))) return m;
+
+    for (const k of Object.keys(TRASH_DICT)) {
+        if (raw.includes(k)) return k;
+    }
+
+    const normalized = norm(raw);
+    for (const k of Object.keys(TRASH_DICT)) {
+        if (normalized.includes(norm(k))) return k;
+    }
+    for (const [alias, mapped] of Object.entries(CLASS_ALIASES)) {
+        if (normalized.includes(norm(alias))) return mapped;
+    }
+
     return null;
 }
 
-// --- Inference ---
+// =============================================================================
+// SUY LUẬN (INFERENCE)
+// =============================================================================
 function getROI(canvas) {
     const size = Math.floor(Math.min(canvas.width, canvas.height) * ROI_RATIO);
     const x    = Math.floor((canvas.width  - size) / 2);
@@ -367,7 +549,8 @@ function getROI(canvas) {
 function cropAndResize(canvas, targetSize = MODEL_INPUT_SIZE) {
     const { x, y, size } = getROI(canvas);
     const out = document.createElement("canvas");
-    out.width = targetSize; out.height = targetSize;
+    out.width  = targetSize;
+    out.height = targetSize;
     out.getContext("2d").drawImage(canvas, x, y, size, size, 0, 0, targetSize, targetSize);
     return out;
 }
@@ -376,9 +559,10 @@ async function smoothPredict(canvas) {
     const preds = await model.predict(canvas);
     predBuffer.push(preds);
     if (predBuffer.length > SMOOTH_FRAMES) predBuffer.shift();
+
     return preds.map((p, i) => ({
         className:   p.className,
-        probability: predBuffer.reduce((sum, f) => sum + f[i].probability, 0) / predBuffer.length
+        probability: predBuffer.reduce((sum, frame) => sum + frame[i].probability, 0) / predBuffer.length,
     }));
 }
 
@@ -389,79 +573,121 @@ function filterBackground(preds) {
     });
 }
 
-// --- ROI Overlay ---
+// =============================================================================
+// ROI OVERLAY (SVG)
+// =============================================================================
 function drawROIOverlay(canvas) {
     document.getElementById("roi-overlay")?.remove();
+
     const { x, y, size } = getROI(canvas);
-    const W  = canvas.width, H = canvas.height;
+    const W  = canvas.width;
+    const H  = canvas.height;
     const ns = "http://www.w3.org/2000/svg";
 
     const svg = document.createElementNS(ns, "svg");
     svg.id = "roi-overlay";
     Object.assign(svg.style, {
-        position: "absolute", top: "0", left: "0",
-        width: "100%", height: "100%",
-        pointerEvents: "none", zIndex: "3",
-        transform: "scaleX(-1)"
+        position:      "absolute",
+        top:           "0",
+        left:          "0",
+        width:         "100%",
+        height:        "100%",
+        pointerEvents: "none",
+        zIndex:        "3",
+        transform:     "scaleX(-1)",
     });
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
 
+    // Mask để tạo vùng tối xung quanh ROI
     const mask = document.createElementNS(ns, "mask");
     mask.id = "roi-mask";
+
     const bg = document.createElementNS(ns, "rect");
-    bg.setAttribute("width", W); bg.setAttribute("height", H); bg.setAttribute("fill", "white");
+    bg.setAttribute("width", W);
+    bg.setAttribute("height", H);
+    bg.setAttribute("fill", "white");
+
     const hole = document.createElementNS(ns, "rect");
-    hole.setAttribute("x", x); hole.setAttribute("y", y);
-    hole.setAttribute("width", size); hole.setAttribute("height", size);
-    hole.setAttribute("fill", "black"); hole.setAttribute("rx", "4");
+    hole.setAttribute("x", x);
+    hole.setAttribute("y", y);
+    hole.setAttribute("width", size);
+    hole.setAttribute("height", size);
+    hole.setAttribute("fill", "black");
+    hole.setAttribute("rx", "4");
+
     mask.append(bg, hole);
     svg.appendChild(mask);
 
+    // Vùng tối
     const shadow = document.createElementNS(ns, "rect");
-    shadow.setAttribute("width", W); shadow.setAttribute("height", H);
-    shadow.setAttribute("fill", "rgba(0,0,0,0.55)"); shadow.setAttribute("mask", "url(#roi-mask)");
+    shadow.setAttribute("width", W);
+    shadow.setAttribute("height", H);
+    shadow.setAttribute("fill", "rgba(0,0,0,0.55)");
+    shadow.setAttribute("mask", "url(#roi-mask)");
     svg.appendChild(shadow);
 
+    // Viền ROI
     const border = document.createElementNS(ns, "rect");
     border.id = "roi-border";
-    border.setAttribute("x", x); border.setAttribute("y", y);
-    border.setAttribute("width", size); border.setAttribute("height", size);
-    border.setAttribute("fill", "none"); border.setAttribute("stroke", "#00e87a");
-    border.setAttribute("stroke-width", "2.5"); border.setAttribute("stroke-dasharray", "8 4");
+    border.setAttribute("x", x);
+    border.setAttribute("y", y);
+    border.setAttribute("width", size);
+    border.setAttribute("height", size);
+    border.setAttribute("fill", "none");
+    border.setAttribute("stroke", "#00e87a");
+    border.setAttribute("stroke-width", "2.5");
+    border.setAttribute("stroke-dasharray", "8 4");
     border.setAttribute("rx", "4");
     svg.appendChild(border);
 
-    [[x, y, 1, 1], [x+size, y, -1, 1], [x+size, y+size, -1, -1], [x, y+size, 1, -1]].forEach(([cx, cy, dx, dy]) => {
-        const p = document.createElementNS(ns, "path");
-        p.setAttribute("d", `M${cx+dx*18} ${cy} L${cx} ${cy} L${cx} ${cy+dy*18}`);
-        p.setAttribute("stroke", "#00d4ff"); p.setAttribute("stroke-width", "3");
-        p.setAttribute("fill", "none"); p.setAttribute("stroke-linecap", "round");
-        svg.appendChild(p);
+    // 4 góc trang trí
+    const corners = [
+        [x,        y,        1,  1],
+        [x + size, y,       -1,  1],
+        [x + size, y + size,-1, -1],
+        [x,        y + size, 1, -1],
+    ];
+    corners.forEach(([cx, cy, dx, dy]) => {
+        const path = document.createElementNS(ns, "path");
+        path.setAttribute("d", `M${cx + dx * 18} ${cy} L${cx} ${cy} L${cx} ${cy + dy * 18}`);
+        path.setAttribute("stroke", "#00d4ff");
+        path.setAttribute("stroke-width", "3");
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke-linecap", "round");
+        svg.appendChild(path);
     });
 
     document.getElementById("webcam-container").appendChild(svg);
 }
 
 function setROIState(state) {
-    const b = document.getElementById("roi-border");
-    if (!b) return;
+    const border = document.getElementById("roi-border");
+    if (!border) return;
+
     if (state === "scanning") {
-        b.setAttribute("stroke", "#ffc800"); b.setAttribute("stroke-dasharray", "");
+        border.setAttribute("stroke", "#ffc800");
+        border.setAttribute("stroke-dasharray", "");
     } else if (state === "motion") {
-        b.setAttribute("stroke", "#00d4ff"); b.setAttribute("stroke-dasharray", "6 3");
+        border.setAttribute("stroke", "#00d4ff");
+        border.setAttribute("stroke-dasharray", "6 3");
     } else {
-        b.setAttribute("stroke", "#00e87a"); b.setAttribute("stroke-dasharray", "8 4");
+        border.setAttribute("stroke", "#00e87a");
+        border.setAttribute("stroke-dasharray", "8 4");
     }
 }
 
-// --- Motion ---
+// =============================================================================
+// PHÁT HIỆN CHUYỂN ĐỘNG (MOTION)
+// =============================================================================
 function detectMotion(canvas) {
     const { x, y, size } = getROI(canvas);
     const tmp = document.createElement("canvas");
-    tmp.width = size; tmp.height = size;
-    const c = tmp.getContext("2d");
-    c.drawImage(canvas, x, y, size, size, 0, 0, size, size);
-    const curr = c.getImageData(0, 0, size, size).data;
+    tmp.width  = size;
+    tmp.height = size;
+
+    const ctx  = tmp.getContext("2d");
+    ctx.drawImage(canvas, x, y, size, size, 0, 0, size, size);
+    const curr = ctx.getImageData(0, 0, size, size).data;
 
     if (!prevFrameData || prevFrameData.length !== curr.length) {
         prevFrameData = curr.slice();
@@ -471,11 +697,12 @@ function detectMotion(canvas) {
     let changed = 0;
     const total = size * size;
     for (let i = 0; i < curr.length; i += 4) {
-        const dr = Math.abs(curr[i]   - prevFrameData[i]);
-        const dg = Math.abs(curr[i+1] - prevFrameData[i+1]);
-        const db = Math.abs(curr[i+2] - prevFrameData[i+2]);
+        const dr = Math.abs(curr[i]     - prevFrameData[i]);
+        const dg = Math.abs(curr[i + 1] - prevFrameData[i + 1]);
+        const db = Math.abs(curr[i + 2] - prevFrameData[i + 2]);
         if ((dr + dg + db) / 3 > MOTION_THRESHOLD) changed++;
     }
+
     prevFrameData = curr.slice();
     return (changed / total) * 100;
 }
@@ -484,10 +711,12 @@ function updateMotionUI(pct) {
     const fill = document.getElementById("motion-fill");
     const txt  = document.getElementById("motion-pct");
     if (!fill || !txt) return;
+
     const clamped = Math.min(pct, 100);
     fill.style.width = clamped + "%";
     txt.innerText    = Math.round(clamped) + "%";
-    fill.className   = "motion-fill" + (pct >= MOTION_TRIGGER_PCT * 1.5 ? " high" : pct >= MOTION_TRIGGER_PCT ? " trigger" : "");
+    fill.className   = "motion-fill" +
+        (pct >= MOTION_TRIGGER_PCT * 1.5 ? " high" : pct >= MOTION_TRIGGER_PCT ? " trigger" : "");
 }
 
 function toggleAutoMode(on) {
@@ -495,70 +724,108 @@ function toggleAutoMode(on) {
     motionDetected = false;
     prevFrameData  = null;
     predBuffer     = [];
-    if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
-    const mb = document.getElementById("motion-bar");
-    const sb = document.getElementById("scan-btn");
+
+    if (motionTimer) {
+        clearTimeout(motionTimer);
+        motionTimer = null;
+    }
+
+    const motionBar = document.getElementById("motion-bar");
+    const scanBtn   = document.getElementById("scan-btn");
+
     if (on) {
-        mb.style.display = "flex";
-        sb.style.display = "none";
+        motionBar.style.display = "flex";
+        scanBtn.style.display   = "none";
         setStatus("CHẾ ĐỘ TỰ ĐỘNG — Đặt rác vào khung", "ready");
     } else {
-        mb.style.display = "none";
-        sb.style.display = "inline-block";
+        motionBar.style.display = "none";
+        scanBtn.style.display   = "inline-block";
         setROIState("idle");
         setStatus("SẴN SÀNG", "ready");
     }
 }
 
-// --- QR ---
+// =============================================================================
+// MÃ QR
+// =============================================================================
 function showQR(wikiSlug) {
     const url   = "https://vi.wikipedia.org/wiki/" + encodeURIComponent(wikiSlug);
     const el    = document.getElementById("qr-code");
     const urlEl = document.getElementById("qr-url");
+
     el.innerHTML    = "";
     urlEl.innerText = url;
+
     if (typeof QRCode !== "undefined") {
-        new QRCode(el, { text: url, width: 110, height: 110, colorDark: "#000", colorLight: "#fff", correctLevel: QRCode.CorrectLevel.M });
+        new QRCode(el, {
+            text:         url,
+            width:        110,
+            height:       110,
+            colorDark:    "#000",
+            colorLight:   "#fff",
+            correctLevel: QRCode.CorrectLevel.M,
+        });
     } else {
-        const img = document.createElement("img");
-        img.src   = `https://chart.googleapis.com/chart?cht=qr&chs=110x110&chl=${encodeURIComponent(url)}`;
-        img.width = 110; img.height = 110;
+        const img   = document.createElement("img");
+        img.src     = `https://chart.googleapis.com/chart?cht=qr&chs=110x110&chl=${encodeURIComponent(url)}`;
+        img.width   = 110;
+        img.height  = 110;
         el.appendChild(img);
     }
 }
 
-// --- Confidence Bars ---
+// =============================================================================
+// THANH ĐỘ TIN CẬY (CONFIDENCE BARS)
+// =============================================================================
 async function updateConfBars() {
     if (!model || !webcam || !isCameraReady) return;
+
     const panel = document.getElementById("confidence-panel");
     const div   = document.getElementById("conf-bars");
     if (!panel || !div) return;
+
     try {
         const sorted = filterBackground(await smoothPredict(cropAndResize(webcam.canvas)))
             .sort((a, b) => b.probability - a.probability);
+
         if (panel.style.display === "none") panel.style.display = "block";
-        div.innerHTML = sorted.map((p, i) => {
-            const pct = Math.round(p.probability * 100);
-            const col = BAR_COLORS[i % BAR_COLORS.length];
-            const lbl = p.className.length > 11 ? p.className.slice(0, 11) + "…" : p.className;
-            return `<div class="conf-bar-row">
-                <span class="conf-bar-label">${lbl}</span>
-                <div class="conf-bar-track"><div class="conf-bar-fill" style="width:${pct}%;background:${col}"></div></div>
-                <span class="conf-bar-pct" style="color:${col}">${pct}%</span>
-            </div>`;
-        }).join("");
-    } catch (_) {}
+
+        div.innerHTML = sorted
+            .map((p, i) => {
+                const pct = Math.round(p.probability * 100);
+                const col = BAR_COLORS[i % BAR_COLORS.length];
+                const lbl = p.className.length > 11
+                    ? p.className.slice(0, 11) + "…"
+                    : p.className;
+                return `
+                    <div class="conf-bar-row">
+                        <span class="conf-bar-label">${lbl}</span>
+                        <div class="conf-bar-track">
+                            <div class="conf-bar-fill" style="width:${pct}%;background:${col}"></div>
+                        </div>
+                        <span class="conf-bar-pct" style="color:${col}">${pct}%</span>
+                    </div>`;
+            })
+            .join("");
+    } catch (_) {
+        // Bỏ qua lỗi trong quá trình cập nhật thanh confidence
+    }
 }
 
-// --- Init ---
+// =============================================================================
+// KHỞI TẠO (INIT)
+// =============================================================================
 async function init() {
-    const btn = document.getElementById("start-btn");
-    btn.innerText = "Đang tải AI..."; btn.disabled = true;
+    const btn      = document.getElementById("start-btn");
+    btn.innerText  = "Đang tải AI...";
+    btn.disabled   = true;
     setStatus("ĐANG TẢI", "active");
+
     try {
         model  = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
         webcam = new tmImage.Webcam(560, 420, true);
-        await webcam.setup(); await webcam.play();
+        await webcam.setup();
+        await webcam.play();
 
         document.getElementById("webcam-container").appendChild(webcam.canvas);
         drawROIOverlay(webcam.canvas);
@@ -573,13 +840,15 @@ async function init() {
     } catch (err) {
         console.error(err);
         alert("Lỗi tải Model!\n" + err.message);
-        btn.innerText = "🔄 Thử lại"; btn.disabled = false;
+        btn.innerText = "🔄 Thử lại";
+        btn.disabled  = false;
         setStatus("LỖI", "");
     }
 }
 
-// --- Main Loop ---
-let loopTick = 0;
+// =============================================================================
+// VÒNG LẶP CHÍNH (MAIN LOOP)
+// =============================================================================
 async function mainLoop() {
     webcam.update();
     loopTick++;
@@ -592,14 +861,19 @@ async function mainLoop() {
 
         const now        = Date.now();
         const cooldownOk = now - lastAutoScan > MOTION_COOLDOWN_MS;
-        if (!cooldownOk) return window.requestAnimationFrame(mainLoop);
+        if (!cooldownOk) {
+            window.requestAnimationFrame(mainLoop);
+            return;
+        }
 
         if (motionPct >= MOTION_TRIGGER_PCT) {
             motionDetected = true;
             setROIState("motion");
             setStatus("PHÁT HIỆN VẬT THỂ — Đặt vật vào khung...", "motion");
-            if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
-
+            if (motionTimer) {
+                clearTimeout(motionTimer);
+                motionTimer = null;
+            }
         } else if (motionDetected && motionPct < MOTION_STILL_PCT) {
             if (!motionTimer) {
                 setStatus("VẬT THỂ ĐÃ ĐẶT — Đang chuẩn bị scan...", "motion");
@@ -609,9 +883,11 @@ async function mainLoop() {
                     if (autoMode && !isScanning) scanTrash();
                 }, MOTION_CONFIRM_MS);
             }
-
         } else if (!motionDetected) {
-            if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
+            if (motionTimer) {
+                clearTimeout(motionTimer);
+                motionTimer = null;
+            }
             setROIState("idle");
             setStatus("CHẾ ĐỘ TỰ ĐỘNG — Đặt rác vào khung", "ready");
         }
@@ -620,9 +896,12 @@ async function mainLoop() {
     window.requestAnimationFrame(mainLoop);
 }
 
-// --- Scan ---
+// =============================================================================
+// QUÉT RÁC (SCAN)
+// =============================================================================
 async function scanTrash() {
     if (!isCameraReady || isScanning) return;
+
     const now = Date.now();
     if (now - lastScanMs < SCAN_DEBOUNCE_MS) return;
     lastScanMs = now;
@@ -631,7 +910,7 @@ async function scanTrash() {
     if (autoMode) lastAutoScan = now;
 
     if (!autoMode) {
-        const scanBtn = document.getElementById("scan-btn");
+        const scanBtn    = document.getElementById("scan-btn");
         scanBtn.classList.add("scanning");
         scanBtn.innerText = "⏳ ĐANG PHÂN TÍCH...";
     }
@@ -653,6 +932,7 @@ async function scanTrash() {
                 const { earned, confBonus, streakBonus } = addPoints(key, conf);
                 renderPointsPanel();
 
+                // Cập nhật popup
                 document.getElementById("popup-icon").innerText = info.icon;
                 document.getElementById("res-name").innerText   = info.name;
                 document.getElementById("res-name").style.color = info.color;
@@ -661,13 +941,14 @@ async function scanTrash() {
 
                 const stepsEl = document.getElementById("res-steps");
                 if (stepsEl) {
+                    const riskClass = info.risk.replace(/ /g, "-").toLowerCase();
                     stepsEl.innerHTML = `
                         <div class="steps-title">📋 Cách xử lý</div>
                         <ol class="steps-list">
                             ${info.steps.map(s => `<li>${s}</li>`).join("")}
                         </ol>
                         <div class="steps-tip">${info.tip}</div>
-                        <div class="steps-risk risk-${info.risk.replace(/ /g, '-').toLowerCase()}">
+                        <div class="steps-risk risk-${riskClass}">
                             ⚠️ Mức độ nguy hại: <strong>${info.risk}</strong>
                         </div>`;
                 }
@@ -678,7 +959,8 @@ async function scanTrash() {
                 popup.classList.add("visible");
 
                 showQR(info.wiki);
-                stats[key]++; totalTrash++;
+                stats[key]++;
+                totalTrash++;
                 bumpCount(key);
                 document.getElementById("total-count").innerText = totalTrash;
                 addHistory(info.name, info.icon, info.color, earned);
@@ -690,10 +972,10 @@ async function scanTrash() {
             }
         }
 
+        // Không nhận diện được
         speak("Không nhận diện được. Vui lòng thử lại.");
         setStatus(autoMode ? "CHẾ ĐỘ TỰ ĐỘNG" : "KHÔNG RÕ", autoMode ? "ready" : "");
         setTimeout(resetScanUI, 1200);
-
     } catch (err) {
         console.error(err);
         setStatus("LỖI QUÉT", "");
@@ -708,11 +990,16 @@ function closePopup() {
 }
 
 function resetScanUI() {
-    const btn = document.getElementById("scan-btn");
+    const btn     = document.getElementById("scan-btn");
     btn.classList.remove("scanning");
-    btn.innerText  = "🎯 NHẬN DIỆN RÁC";
+    btn.innerText = "🎯 NHẬN DIỆN RÁC";
+
     motionDetected = false;
-    if (motionTimer) { clearTimeout(motionTimer); motionTimer = null; }
+    if (motionTimer) {
+        clearTimeout(motionTimer);
+        motionTimer = null;
+    }
+
     setROIState("idle");
     setStatus(autoMode ? "CHẾ ĐỘ TỰ ĐỘNG — Đặt rác vào khung" : "SẴN SÀNG", "ready");
     isScanning = false;
