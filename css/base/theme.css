@@ -1,0 +1,26 @@
+:root {
+  --bg-base:  #0d0d12;
+  --bg-panel: #16161e;
+  --bg-card:  #1e1e2a;
+  --border:   #2a2a3a;
+  --green:    #00e87a;
+  --cyan:     #00d4ff;
+  --yellow:   #ffc800;
+  --orange:   #ff8c00;
+  --red:      #ff3d5a;
+  --blue:     #4d8cff;
+  --text:     #e8e8f0;
+  --muted:    #6b6b80;
+  --font-d:   'Orbitron', monospace;
+  --font-b:   'Be Vietnam Pro', sans-serif;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text);
+  font-family: var(--font-b);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
