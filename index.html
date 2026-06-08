@@ -9,11 +9,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <link rel="stylesheet" href="style.css">
+  
+  <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
 
-<!-- HEADER -->
 <div class="header">
   <div class="header-left">
     <div class="logo-icon">♻</div>
@@ -36,60 +36,8 @@
   </div>
 </div>
 
-<!-- REWARDS SHOP MODAL -->
-<div id="shop-overlay" onclick="if(event.target===this)closeShop()">
-  <div id="shop-modal">
-    <div class="shop-header">
-      <div>
-        <h2 class="shop-title">🎁 CỬA HÀNG QUÀ TẶNG</h2>
-        <p class="shop-sub">Dùng điểm xanh để đổi phần thưởng!</p>
-      </div>
-      <div class="shop-pts-display">
-        <span class="shop-pts-num" id="shop-pts-num">0</span>
-        <span class="shop-pts-lbl">điểm hiện có</span>
-      </div>
-      <button class="shop-close" onclick="closeShop()">✕</button>
-    </div>
-
-    <div class="shop-tabs">
-      <button class="shop-tab active" onclick="switchTab('voucher',this)">🎫 Voucher</button>
-      <button class="shop-tab" onclick="switchTab('item',this)">🎒 Vật phẩm</button>
-      <button class="shop-tab" onclick="switchTab('eco',this)">🌱 Eco</button>
-      <button class="shop-tab" onclick="switchTab('special',this)">⭐ Đặc biệt</button>
-    </div>
-
-    <div id="shop-grid" class="shop-grid"></div>
-
-    <div id="redeem-layer" style="display:none">
-      <div class="redeem-card">
-        <div class="redeem-icon" id="redeem-icon">🎁</div>
-        <h3 id="redeem-name">Tên quà</h3>
-        <p id="redeem-desc">Mô tả</p>
-        <div class="redeem-cost" id="redeem-cost">100 điểm</div>
-        <div class="redeem-btns">
-          <button class="btn-confirm" onclick="confirmRedeem()">✅ Xác nhận đổi</button>
-          <button class="btn-cancel" onclick="cancelRedeem()">Huỷ</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="success-layer" style="display:none">
-      <div class="success-card">
-        <div class="success-anim" id="success-anim">🎉</div>
-        <h3>Đổi quà thành công!</h3>
-        <p id="success-msg"></p>
-        <div class="success-code" id="success-code"></div>
-        <p class="success-note">Lưu mã này lại và trình cho nhân viên hoặc đối tác để nhận quà.</p>
-        <button class="btn-confirm" onclick="closeSuccess()">Xong 🎊</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MAIN -->
 <div class="main-container">
-
-  <!-- Camera -->
+  
   <div class="camera-section">
     <div class="motion-bar" id="motion-bar" style="display:none;">
       <span class="motion-label">CHUYỂN ĐỘNG</span>
@@ -132,7 +80,6 @@
     <div id="points-toast"></div>
   </div>
 
-  <!-- Stats -->
   <div class="stats-section">
     <h2>📊 THỐNG KÊ</h2>
     <div id="points-panel" class="points-panel"></div>
@@ -149,9 +96,68 @@
       <p>lượt nhận diện</p>
     </div>
   </div>
-
 </div>
 
-<script src="script.js"></script>
+<div id="shop-overlay">
+  <div id="shop-modal">
+    <div class="shop-header">
+      <div>
+        <h2 class="shop-title">CỬA HÀNG SINH THÁI</h2>
+        <p class="shop-sub">Đổi điểm lấy quà tặng và voucher</p>
+      </div>
+      <div class="shop-pts-display">
+        <span class="shop-pts-num" id="shop-pts-num">0</span>
+        <span class="shop-pts-lbl">ĐIỂM CỦA BẠN</span>
+      </div>
+      <button class="shop-close" onclick="closeShop()">✕</button>
+    </div>
+    <div class="shop-tabs">
+      <button class="shop-tab active" onclick="switchTab('voucher', this)">🎟️ Voucher</button>
+      <button class="shop-tab" onclick="switchTab('item', this)">🛍️ Vật phẩm</button>
+      <button class="shop-tab" onclick="switchTab('eco', this)">🌱 Eco</button>
+      <button class="shop-tab" onclick="switchTab('special', this)">⭐ Đặc biệt</button>
+    </div>
+    <div class="shop-grid" id="shop-grid"></div>
+  </div>
+
+  <div id="redeem-layer" style="display:none;">
+    <div class="redeem-card">
+      <div class="redeem-icon" id="redeem-icon">☕</div>
+      <h3 id="redeem-name">Tên quà</h3>
+      <p id="redeem-desc">Mô tả quà tặng</p>
+      <div class="redeem-cost" id="redeem-cost">0 điểm</div>
+      <div class="redeem-btns">
+        <button class="btn-cancel" onclick="cancelRedeem()">Hủy</button>
+        <button class="btn-confirm" onclick="confirmRedeem()">Xác nhận đổi</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="success-layer" style="display:none;">
+    <div class="success-card">
+      <div class="success-anim" id="success-anim">🎉</div>
+      <h3>ĐỔI QUÀ THÀNH CÔNG!</h3>
+      <p id="success-msg">Bạn đã đổi thành công</p>
+      <div class="success-code" id="success-code">MÃ-CODE</div>
+      <p class="success-note">Vui lòng chụp lại màn hình hoặc đưa mã này cho nhân viên để nhận quà.</p>
+      <button class="btn-confirm" style="margin-top:10px" onclick="closeSuccess()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/core/config.js"></script>
+<script src="js/core/state.js"></script>
+
+<script src="js/utils/helpers.js"></script>
+<script src="js/services/speech.js"></script>
+<script src="js/services/motion.js"></script>
+<script src="js/services/ai.js"></script>
+
+<script src="js/components/roi.js"></script>
+<script src="js/components/ui.js"></script>
+<script src="js/components/shop.js"></script>
+
+<script src="js/main.js"></script>
+
 </body>
 </html>
