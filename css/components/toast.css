@@ -1,0 +1,21 @@
+#points-toast {
+  display: none;
+  position: absolute; bottom: 80px; left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #0a2e1a, #0a1a2e);
+  border: 1px solid var(--green); border-radius: 30px;
+  padding: 8px 20px; font-family: var(--font-d);
+  z-index: 30; text-align: center;
+  opacity: 0; transition: opacity .3s;
+  pointer-events: none; white-space: nowrap;
+}
+#points-toast.visible {
+  display: flex; flex-direction: column; gap: 2px;
+  opacity: 1; animation: toast-up .3s ease;
+}
+@keyframes toast-up {
+  from { transform: translateX(-50%) translateY(10px) }
+  to { transform: translateX(-50%) translateY(0) }
+}
+.toast-pts { font-size: 18px; font-weight: 900; color: var(--green); text-shadow: 0 0 15px rgba(0,232,122,.6); }
+.toast-bonus { font-size: 10px; color: var(--muted); letter-spacing: .5px; }
