@@ -1,4 +1,4 @@
-const MODEL_URL = "https://teachablemachine.withgoogle.com/models/ssBt_zMdp/";
+const MODEL_URL = "https://teachablemachine.withgoogle.com/models/CRCsS6ab8/";
 const CONFIDENCE_THRESHOLD = 0.72;
 const ROI_RATIO = 0.50;
 const MODEL_INPUT_SIZE = 224;
